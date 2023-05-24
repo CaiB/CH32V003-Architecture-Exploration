@@ -1,1 +1,6 @@
 sigrock-cli-install.exe
+**/*.elf
+**/*.hex
+**/*.lst
+**/*.map
+Captures/**
