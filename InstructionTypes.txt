@@ -1,0 +1,87 @@
+
+// Registers with apostrophe (e.g. SRC') are one of the 8 in the compressed set.
+
+// Arithmetic
+add  [DEST], [SRC1], [SRC2] // DEST = SRC1 + SRC2
+slt  [DEST], [SRC1], [SRC2] // DEST = (  signed(SRC1) <   signed(SRC2)) ? 1 : 0
+sltu [DEST], [SRC1], [SRC2] // DEST = (unsigned(SRC1) < unsigned(SRC2)) ? 1 : 0
+and  [DEST], [SRC1], [SRC2] // DEST = SRC1 & SRC2
+or   [DEST], [SRC1], [SRC2] // DEST = SRC1 | SRC2
+xor  [DEST], [SRC1], [SRC2] // DEST = SRC1 ^ SRC2
+sll  [DEST], [SRC1], [SRC2] // DEST = SRC1 <<  SRC2[4:0]
+srl  [DEST], [SRC1], [SRC2] // DEST = SRC1 >>> SRC2[4:0]
+sra  [DEST], [SRC1], [SRC2] // DEST = SRC1 >>  SRC2[4:0]
+
+// Arithmetic: compressed
+c.mv  [DEST], [SRC] // DEST  = SRC // Both SRC and DEST cannot be x0
+c.add [DEST], [SRC] // DEST += SRC // Both SRC and DEST cannot be x0
+c.and [DEST'], [SRC'] // DEST' &= SRC'
+c.or  [DEST'], [SRC'] // DEST' |= SRC'
+c.xor [DEST'], [SRC'] // DEST' ^= SRC'
+c.sub [DEST'], [SRC'] // DEST' -= SRC'
+c.nop
+
+// Arithmetic: immediate
+slti  [DEST], [SRC], [IMM] // DEST = (  signed(SRC) < SE(12b immediate)) ? 1 : 0
+sltiu [DEST], [SRC], [IMM] // DEST = (unsigned(SRC) < unsigned(SE(12b immediate))) ? 1 : 0
+addi  [DEST], [SRC], [IMM] // DEST = SRC + SE(12b immediate)
+andi  [DEST], [SRC], [IMM] // DEST = SRC & SE(12b immediate)
+ori   [DEST], [SRC], [IMM] // DEST = SRC | SE(12b immediate)
+xori  [DEST], [SRC], [IMM] // DEST = SRC ^ SE(12b immediate)
+slli  [DEST], [SRC], [IMM] // DEST = SRC <<  (5b immediate)
+srli  [DEST], [SRC], [IMM] // DEST = SRC >>> (5b immediate)
+srai  [DEST], [SRC], [IMM] // DEST = SRC >>  (5b immediate)
+lui   [DEST], [IMM] // DEST = {(20b immediate), '0}
+auipc [DEST], [IMM] // DEST = {(20b immediate), '0} + pc
+
+// Arithmetic: immediate, compressed
+c.li  [DEST], [IMM] // DEST = SE(6b immediate) // DEST cannot be x0
+c.lui [DEST], [IMM] // DEST = {SE(6b immediate), 12'b0} // IMM must be non-zero, DEST cannot be x0 or x2 (sp)
+c.addi [DEST], [IMM] // DEST +=  SE(6b immediate) // IMM must be non-zero
+c.addi16sp [IMM]     // sp   += (SE(6b immediate) * 16B) // IMM must be non-zero (has effective range -512..496)
+c.addi4spn [DEST'], [IMM] // DEST' = sp + (unsigned(8b immediate) * 4B) // IMM must be non-zero
+c.andi [DEST'], [IMM] // DEST' &= SE(6b immediate)
+c.slli [DEST], [IMM]  // DEST  <<=  (5b immediate) // DEST cannot be x0
+c.srli [DEST'], [IMM] // DEST' >>>= (5b immediate)
+c.srai [DEST'], [IMM] // DEST' >>=  (5b immediate)
+
+// Unconditional control flow: immediate, branch
+jal [DEST], [IMM]         // DEST = pc + 4B; pc += (SE(20b immediate) * 2B);
+jalr [DEST], [SRC], [IMM] // DEST = pc + 4B; pc = (SE(12b immediate) + SRC) & 0xFFFFFFFE;
+
+// Unconditional control flow: immediate, branch, compressed
+c.j [IMM]   //               pc += (SE(11b immediate) * 2B)
+c.jal [IMM] // x1 = pc + 2B; pc += (SE(11b immediate) * 2B)
+c.jr   [DEST] //               pc = DEST // DEST cannot be x0
+c.jalr [DEST] // x1 = pc + 2B; pc = DEST // DEST cannot be x0
+
+// Conditional control flow: immediate, branch
+beq [SRC1], [SRC2], [IMM] // pc += (SRC1 == SRC2) ? (SE(12b immediate) * 2B) : 4B
+bne [SRC1], [SRC2], [IMM] // pc += (SRC1 != SRC2) ? (SE(12b immediate) * 2B) : 4B
+blt  [SRC1], [SRC2], [IMM] // pc += (  signed(SRC1) <    signed(SRC2)) ? (SE(12b immediate) * 2B) : 4B
+bltu [SRC1], [SRC2], [IMM] // pc += (unsigned(SRC1) <  unsigned(SRC2)) ? (SE(12b immediate) * 2B) : 4B
+bge  [SRC1], [SRC2], [IMM] // pc += (  signed(SRC1) >=   signed(SRC2)) ? (SE(12b immediate) * 2B) : 4B
+bgeu [SRC1], [SRC2], [IMM] // pc += (unsigned(SRC1) >= unsigned(SRC2)) ? (SE(12b immediate) * 2B) : 4B
+
+// Conditional control flow: immediate, branch, compressed
+c.beqz [SRC'], [IMM] // pc += (SRC' == 0) ? (SE(8b immediate) * 2B) : 2B
+c.bnez [SRC'], [IMM] // pc += (SRC' != 0) ? (SE(8b immediate) * 2B) : 2B
+
+// Load/Store: immediate, memory
+lw  [DEST], [IMM]([SRC]) // DEST =      MEM[SRC + SE(12b immediate), 32b]
+lh  [DEST], [IMM]([SRC]) // DEST =   SE(MEM[SRC + SE(12b immediate), 16b])
+lhu [DEST], [IMM]([SRC]) // DEST = {'0, MEM[SRC + SE(12b immediate), 16b]}
+lb  [DEST], [IMM]([SRC]) // DEST =   SE(MEM[SRC + SE(12b immediate),  8b])
+lbu [DEST], [IMM]([SRC]) // DEST = {'0, MEM[SRC + SE(12b immediate),  8b]}
+sw  [SRC], [IMM]([DEST]) // MEM[DEST + SE(12b immediate), 32b] = SRC
+sh  [SRC], [IMM]([DEST]) // MEM[DEST + SE(12b immediate), 16b] = SRC[15:0]
+sb  [SRC], [IMM]([DEST]) // MEM[DEST + SE(12b immediate),  8b] = SRC[ 7:0]
+
+// Load/Store: immediate, memory, compressed
+c.lwsp  [DEST], [IMM]        // DEST  = MEM[sp   + (unsigned(6b immediate) * 4B), 32b] // DEST cannot be x0
+c.lw    [DEST'], [IMM](SRC') // DEST' = MEM[SRC' + (unsigned(6b immediate) * 4B), 32b]
+c.swsp  [SRC], [IMM]         // MEM[sp    + (unsigned(6b immediate) * 4B), 32b] = SRC
+c.sw    [SRC'], [IMM](DEST') // MEM[DEST' + (unsigned(6b immediate) * 4B), 32b] = SRC'
+
+
+// There's fence, ecall, ebreak, c.ebreak, (and hint) too but I'm pretending those doesn't exist
