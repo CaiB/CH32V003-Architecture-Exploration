@@ -10,6 +10,8 @@
 // Output: PD2
 // Can change these in Firmware.h
 
+void RunTests();
+
 int main()
 {
     SystemInit48HSI();
@@ -33,15 +35,23 @@ int main()
 	//| (GPIO_SPEED_IN | GPIO_CNF_IN_PUPD) << (4 * [PIN_DEFN]) // <--- Use lines like this to enable additional pins on the D port
 
 	// Configure IN_PIN as an interrupt.
-	AFIO->EXTICR = 3 << (IN_PIN * 2); // 3 in front = PORTD
-	EXTI->INTENR = 1 << IN_PIN; // Enable EXT3
-	EXTI->FTENR = 1 << IN_PIN;  // Rising edge trigger
+	//AFIO->EXTICR = 3 << (IN_PIN * 2); // 3 in front = PORTD
+	//EXTI->INTENR = 1 << IN_PIN; // Enable EXT3
+	//EXTI->FTENR = 1 << IN_PIN;  // Rising edge trigger
 
 	// Disable fast interrupts. "HPE"
 	asm volatile("addi t1,x0, 0\ncsrrw x0, 0x804, t1\n" : : :  "t1");
 
 	// Enable interrupt
-	NVIC_EnableIRQ(EXTI7_0_IRQn);
+	//NVIC_EnableIRQ(EXTI7_0_IRQn);
 
-	while(1) { asm volatile( "nop \n nop \n nop \n nop \n"); }
+	while(1)
+	{
+		asm volatile( "nop \n nop \n nop \n nop \n");
+		if ((*DMDATA0) == 0x444F)
+		{
+			RunTests();
+			(*DMDATA0) = 0x4F4B;
+		}
+	}
 }

@@ -8,12 +8,14 @@
 #define PIN_OFF li a1, 1 << (16 + OUT_PIN); sw a1, BSHR_OFFSET(a0)
 #define PIN_ON li a1, 1 << OUT_PIN; sw a1, BSHR_OFFSET(a0)
 
-.global EXTI7_0_IRQHandler
-EXTI7_0_IRQHandler:
+//.global EXTI7_0_IRQHandler
+//EXTI7_0_IRQHandler:
+.global RunTests
+RunTests:
     // Push registers onto stack
-    addi    sp, sp, -44
-    sw      a0, 0(sp)
-    sw      a1, 4(sp)
+    //addi    sp, sp, -44
+    //sw      a0, 0(sp)
+    //sw      a1, 4(sp)
 
     // Prep
     la      a0, GPIOD_BASE
@@ -40,13 +42,14 @@ EXTI7_0_IRQHandler:
     PIN_OFF
 
     // Acknowledge the interrupt
-    la      a0, EXTI_BASE + 20 // EXTI->INTFR
-    li      a1, (1 << IN_PIN)
-    sw      a1, 0(a0)
+    //la      a0, EXTI_BASE + 20 // EXTI->INTFR
+    //li      a1, (1 << IN_PIN)
+    //sw      a1, 0(a0)
 
     // Restore registers from stack
-    lw      a0, 0(sp)
-    lw      a1, 4(sp)
-    addi    sp, sp, 44
-	mret
+    //lw      a0, 0(sp)
+    //lw      a1, 4(sp)
+    //addi    sp, sp, 44
+	//mret
+    ret
     
