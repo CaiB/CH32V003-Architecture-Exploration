@@ -5,51 +5,44 @@
 #define INDR_OFFSET 8
 #define SYSTICK_CNT 0xE000F008
 
-#define PIN_OFF li a1, 1 << (16 + OUT_PIN); sw a1, BSHR_OFFSET(a0)
-#define PIN_ON li a1, 1 << OUT_PIN; sw a1, BSHR_OFFSET(a0)
+#define PIN_OFF_A sw a1, BSHR_OFFSET(a0)
+#define PIN_ON_A sw a2, BSHR_OFFSET(a0)
 
-//.global EXTI7_0_IRQHandler
-//EXTI7_0_IRQHandler:
+#define PIN_OFF_B li a1, 1 << (16 + OUT_PIN_B); sw a1, BSHR_OFFSET(a0)
+#define PIN_ON_B li a1, 1 << OUT_PIN_B; sw a1, BSHR_OFFSET(a0)
+
 .global RunTests
 RunTests:
-    // Push registers onto stack
-    //addi    sp, sp, -44
-    //sw      a0, 0(sp)
-    //sw      a1, 4(sp)
-
     // Prep
     la      a0, GPIOD_BASE
-    PIN_OFF
-    nop; nop; nop; nop; nop; nop; nop; nop // x8
+    li      a1, 1 << (16 + OUT_PIN_A) // A off *KEEP THIS*
+    li      a2, 1 << OUT_PIN_A // A on *KEEP THIS*
+    li      a3, 1 << OUT_PIN_B // B on
+    PIN_OFF_A
+    nop; nop; nop; nop; nop; nop; nop; // x7
 
-    // Output a few pulses (alignment? who needs it)
-    PIN_ON
-    PIN_OFF
-    nop; nop; nop; nop
-    
-    PIN_ON
+    // Output a few pulses
+    .balign 32 // Let's be extra generous
     nop
-    PIN_OFF
-    nop; nop; nop; nop
+    nop // Make sure instructions are fetched
+    sw a3, BSHR_OFFSET(a0) // B on (can delete a3 now)
+    PIN_ON_A
+    PIN_OFF_A
+    nop; nop; nop; nop;
+    
+    PIN_ON_A
+    nop
+    PIN_OFF_A
+    nop; nop; nop; nop;
 
-    PIN_ON
+    PIN_ON_A
     nop; nop
-    PIN_OFF
-    nop; nop; nop; nop
+    PIN_OFF_A
+    nop; nop; nop; nop;
 
-    PIN_ON
-    nop; nop; nop; nop
-    PIN_OFF
+    PIN_ON_A
+    nop; nop; nop; nop;
+    PIN_OFF_A
 
-    // Acknowledge the interrupt
-    //la      a0, EXTI_BASE + 20 // EXTI->INTFR
-    //li      a1, (1 << IN_PIN)
-    //sw      a1, 0(a0)
-
-    // Restore registers from stack
-    //lw      a0, 0(sp)
-    //lw      a1, 4(sp)
-    //addi    sp, sp, 44
-	//mret
     ret
     

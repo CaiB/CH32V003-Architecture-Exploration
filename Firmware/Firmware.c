@@ -30,9 +30,9 @@ int main()
 	// Enable the GPIO pins on port D
 	GPIOD->CFGLR =
 		(GPIO_CNF_IN_PUPD) << 4 |  // Keep SWIO enabled.
-		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP) << (4 * OUT_PIN)
-	  | (GPIO_SPEED_IN | GPIO_CNF_IN_PUPD) << (4 * IN_PIN);
-	//| (GPIO_SPEED_IN | GPIO_CNF_IN_PUPD) << (4 * [PIN_DEFN]) // <--- Use lines like this to enable additional pins on the D port
+		(GPIO_Speed_50MHz | GPIO_CNF_OUT_PP) << (4 * OUT_PIN_A)
+	  | (GPIO_Speed_50MHz | GPIO_CNF_OUT_PP) << (4 * OUT_PIN_B);
+	//| (GPIO_SPEED_IN | GPIO_CNF_IN_PUPD) << (4 * [PIN_DEFN]) // <--- Use lines like this to enable additional in pins on the D port
 
 	// Configure IN_PIN as an interrupt.
 	//AFIO->EXTICR = 3 << (IN_PIN * 2); // 3 in front = PORTD

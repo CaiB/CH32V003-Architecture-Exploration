@@ -1,2 +1,2 @@
-#define OUT_PIN 2
-#define IN_PIN 4
+#define OUT_PIN_A 2
+#define OUT_PIN_B 4
