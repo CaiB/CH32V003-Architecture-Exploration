@@ -1,5 +1,23 @@
-
-// Registers with apostrophe (e.g. SRC') are one of the 8 in the compressed set.
+// | Reg Nmbr | ABI Name | Compressed | Preserved | Description
+// |          |          |            | by callee |
+// |----------|----------|------------|-----------|-------------
+// |    x0    |   zero   |     N/A    |    N/A    | Hardwired zero
+// |    x1    |    ra    |     N/A    |     No    | Return address
+// |    x2    |    sp    |     N/A    |    Yes    | Stack pointer
+// |    x3    |    gp    |     N/A    |    N/A    | Global pointer
+// |    x4    |    tp    |     N/A    |    N/A    | Thread pointer
+// |    x5    |    t0    |     N/A    |     No    | Temp reg 0
+// |    x6    |    t1    |     N/A    |     No    | Temp reg 1
+// |    x7    |    t2    |     N/A    |     No    | Temp reg 2
+// |    x8    |  s0 / fp |     000    |    Yes    | Saved reg 0 / Frame pointer
+// |    x9    |    s1    |     001    |    Yes    | Saved reg 1
+// |    x10   |    a0    |     010    |     No    | Return val 0
+// |    x11   |    a1    |     011    |     No    | Function arg 1 / Return val 1
+// |    x12   |    a2    |     100    |     No    | Function arg 2
+// |    x13   |    a3    |     101    |     No    | Function arg 3
+// |    x14   |    a4    |     110    |     No    | Function arg 4
+// |    x15   |    a5    |     111    |     No    | Function arg 5
+// Registers below with apostrophe (e.g. SRC') are one of the 8 in the compressed set.
 
 // Arithmetic
 add  [DEST], [SRC1], [SRC2] // DEST = SRC1 + SRC2
@@ -13,8 +31,8 @@ srl  [DEST], [SRC1], [SRC2] // DEST = SRC1 >>> SRC2[4:0]
 sra  [DEST], [SRC1], [SRC2] // DEST = SRC1 >>  SRC2[4:0]
 
 // Arithmetic: compressed
-c.mv  [DEST], [SRC] // DEST  = SRC // Both SRC and DEST cannot be x0
-c.add [DEST], [SRC] // DEST += SRC // Both SRC and DEST cannot be x0
+c.mv  [DEST], [SRC] // DEST  = SRC // SRC cannot be x0, DEST cannot be x0
+c.add [DEST], [SRC] // DEST += SRC // SRC cannot be x0, DEST cannot be x0
 c.and [DEST'], [SRC'] // DEST' &= SRC'
 c.or  [DEST'], [SRC'] // DEST' |= SRC'
 c.xor [DEST'], [SRC'] // DEST' ^= SRC'
@@ -22,7 +40,7 @@ c.sub [DEST'], [SRC'] // DEST' -= SRC'
 c.nop
 
 // Arithmetic: immediate
-slti  [DEST], [SRC], [IMM] // DEST = (  signed(SRC) < SE(12b immediate)) ? 1 : 0
+slti  [DEST], [SRC], [IMM] // DEST = (  signed(SRC) <          SE(12b immediate))  ? 1 : 0
 sltiu [DEST], [SRC], [IMM] // DEST = (unsigned(SRC) < unsigned(SE(12b immediate))) ? 1 : 0
 addi  [DEST], [SRC], [IMM] // DEST = SRC + SE(12b immediate)
 andi  [DEST], [SRC], [IMM] // DEST = SRC & SE(12b immediate)
@@ -36,10 +54,10 @@ auipc [DEST], [IMM] // DEST = {(20b immediate), '0} + pc
 
 // Arithmetic: immediate, compressed
 c.li  [DEST], [IMM] // DEST = SE(6b immediate) // DEST cannot be x0
-c.lui [DEST], [IMM] // DEST = {SE(6b immediate), 12'b0} // IMM must be non-zero, DEST cannot be x0 or x2 (sp)
-c.addi [DEST], [IMM] // DEST +=  SE(6b immediate) // IMM must be non-zero
-c.addi16sp [IMM]     // sp   += (SE(6b immediate) * 16B) // IMM must be non-zero (has effective range -512..496)
-c.addi4spn [DEST'], [IMM] // DEST' = sp + (unsigned(8b immediate) * 4B) // IMM must be non-zero
+c.lui [DEST], [IMM] // DEST = {SE(6b immediate), 12'b0} // IMM cannot be 0, DEST cannot be x0 or x2 (sp)
+c.addi [DEST], [IMM] // DEST +=  SE(6b immediate) // IMM cannot be 0
+c.addi16sp [IMM]     // sp   += (SE(6b immediate) * 16B) // IMM cannot be 0 (has effective range -512..496)
+c.addi4spn [DEST'], [IMM] // DEST' = sp + (unsigned(8b immediate) * 4B) // IMM cannot be 0
 c.andi [DEST'], [IMM] // DEST' &= SE(6b immediate)
 c.slli [DEST], [IMM]  // DEST  <<=  (5b immediate) // DEST cannot be x0
 c.srli [DEST'], [IMM] // DEST' >>>= (5b immediate)
@@ -52,6 +70,8 @@ jalr [DEST], [SRC], [IMM] // DEST = pc + 4B; pc = (SE(12b immediate) + SRC) & 0x
 // Unconditional control flow: immediate, branch, compressed
 c.j [IMM]   //               pc += (SE(11b immediate) * 2B)
 c.jal [IMM] // x1 = pc + 2B; pc += (SE(11b immediate) * 2B)
+
+// Unconditional control flow: branch, compressed
 c.jr   [DEST] //               pc = DEST // DEST cannot be x0
 c.jalr [DEST] // x1 = pc + 2B; pc = DEST // DEST cannot be x0
 
@@ -85,3 +105,4 @@ c.sw    [SRC'], [IMM](DEST') // MEM[DEST' + (unsigned(6b immediate) * 4B), 32b] 
 
 
 // There's fence, ecall, ebreak, c.ebreak, (and hint) too but I'm pretending those doesn't exist
+// Instructions with all bits zero, or all bits one, are reserved as illegal instructions
