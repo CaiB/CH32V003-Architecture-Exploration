@@ -4,6 +4,8 @@ My attempts to poke at the CH32V003 chip to learn about its instruction timings 
 
 The tools used in this process were built quickly, and are not of high quality. I hope you don't need to use them.
 
+Still extremely unfinished.
+
 
 Example capture command:
 ```powershell
@@ -26,4 +28,8 @@ Next:
 > `--time <ms>`  
 > Sample for \<ms\> milliseconds, then quit.
 
-Even though this should just control how long the capture is, it didn't work until I added `time=true` to the csv [output format params](https://sigrok.org/wiki/File_format:Csv). Otherwise it just captured indefinitely.
+Even though this should just control how long the capture is, it didn't work until I added `time=true` to the csv [output format params](https://sigrok.org/wiki/File_format:Csv). Otherwise it just captured indefinitely. Then once I enabled triggering, I could never get time to work again, it always just captures indefinitely.
+
+
+I seem to always get data corruption near the end of the sampling period, regardless of how long I make it. Channels just get swapped randomly. What excellent high quality software.
+
