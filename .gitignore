@@ -4,3 +4,5 @@ sigrock-cli-install.exe
 **/*.lst
 **/*.map
 Captures/**
+TestGen/Generated/**
+TestGen/**.bin
