@@ -7,7 +7,8 @@ DynamicParam
     $script:TARGET = 'Firmware';
 
     # Source it
-    . ./ch32v003fun/build_scripts/ch32v003fun_base.ps1
+    if (Test-Path './supplemental/build_scripts/ch32v003fun_base.ps1') { . ./supplemental/build_scripts/ch32v003fun_base.ps1 }
+    else { . ./ch32v003fun/build_scripts/ch32v003fun_base.ps1 }
 
     # Add our actions
     $script:AVAIL_ACTIONS += @{
@@ -28,6 +29,7 @@ Process
     $script:MINICHLINK = './ch32v003fun/minichlink';
     $script:ADDITIONAL_C_FILES += @('RunTests.S');
     
-    . ./ch32v003fun/build_scripts/ch32v003fun_base.ps1
+    if (Test-Path './supplemental/build_scripts/ch32v003fun_base.ps1') { . ./supplemental/build_scripts/ch32v003fun_base.ps1 }
+    else { . ./ch32v003fun/build_scripts/ch32v003fun_base.ps1 }
     ExecuteActions $Actions;
 }
