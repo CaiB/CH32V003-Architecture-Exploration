@@ -4,7 +4,8 @@
 [CmdletBinding()]
 param (
     [Parameter()]
-    [switch] $NoCapture
+    [switch] $NoCapture,
+    [switch] $ManualCapture
 )
 
 $ErrorActionPreference = 'Stop';
@@ -47,21 +48,33 @@ Set-Content (Join-Path $OutputDir "$TEST_NAME.S") -Value $Output;
 Write-Host 'Building and flashing program...';
 BuildTest $TEST_NAME;
 
-if(!$NoCapture)
+[string] $LACaptureCSV = Join-Path $PSScriptRoot "../Captures/$TEST_NAME.csv";
+if(!$NoCapture -AND !$ManualCapture)
 {
     Write-Host 'Starting logic analyzer...';
-    [string] $LACaptureCSV = Join-Path $PSScriptRoot "../Captures/$TEST_NAME.csv";
     $ListenerProc = StartListener $LACaptureCSV;
 }
 
 Write-Host 'Starting the test program...';
 Start-Process -NoNewWindow -Wait "$script:MINICHLINK/minichlink" -ArgumentList @('-s', '0x04', '0x444F');
 
-if(!$NoCapture)
+if(!$NoCapture -AND !$ManualCapture)
 {
     Write-Host 'Waiting for logic analyzer...';
     $ListenerProc.WaitForExit();
+}
 
+if (!$NoCapture)
+{
+    if($ManualCapture)
+    {
+        Write-Host 'Press any key once you have saved the CSV file.';
+        [Console]::ReadKey() | Out-Null;
+    }
     Write-Host 'Parsing output...';
-    ParseCapture $LACaptureCSV;
+    $ParsedData = ParseCapture $LACaptureCSV;
+
+    [int] $DataIndex = 0;
+    $TestData = ReadSingleTest $ParsedData ([ref]$DataIndex);
+    Write-Host $TestData;
 }

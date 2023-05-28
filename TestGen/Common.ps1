@@ -54,7 +54,6 @@ function GenerateTestStart
 
     $Output += @(
         'PIN_OFF_A',
-        'nop; nop; nop; nop; // x4'
         'PIN_ON_A',
         'nop; nop; nop; nop; nop; nop; nop; nop; // x8',
         'PIN_OFF_A'
@@ -289,7 +288,7 @@ public class JankyWorkaround
         if (evt.Data == null) { return; }
         if (evt.Data == "Failed to open device.") { this.GotFailure = true; }
         if (evt.Data == "sr: session: Starting.") { this.GotReady = true; }
-        Console.WriteLine("SIGROK>" + evt.Data);
+        //Console.WriteLine("SIGROK>" + evt.Data);
     }
 }
 "@
@@ -320,7 +319,7 @@ function StartListener([string] $csvFile)
     $Timeout = $(Get-Date) + [TimeSpan]::FromSeconds(10);
     while (!$Jank.GotFailure -AND !$Jank.GotReady -AND ($Timeout -GT $(Get-Date)))
     {
-        Write-Host "Got fail? $($Jank.GotFailure), Got ready? $($Jank.GotReady)";
+        #Write-Host "Got fail? $($Jank.GotFailure), Got ready? $($Jank.GotReady)";
         Start-Sleep -Milliseconds 500;
     }
 
@@ -334,18 +333,20 @@ function ParseCapture([string] $csvFile)
 {
     try
     {
+        $OutputData = @();
         [StreamReader] $InputFile = [StreamReader]::new($csvFile);
         [string] $OutputPath = $(Join-Path $([Path]::GetDirectoryName($csvFile)) "../Data/$([Path]::GetFileName($csvFile))" -Resolve);
         [StreamWriter] $OutputFile = [StreamWriter]::new($OutputPath);
         Write-Host "Saving output to $OutputPath";
 
-        $InputFile.ReadLine() | Out-Null; # Discard the header line
-
         [int] $LastClock = 0;
-        [int] $LastData = 0;
-        [int] $TimeSinceLastDataTrans = 0;
+        [int] $LastClockedData = 0;
+        [int] $LastRawData = 0;
+        [int] $TimeSinceLastDataTrans = 1;
 
         [string] $Line = $InputFile.ReadLine();
+        while ($Line -notmatch '^\d') { $Line = $InputFile.ReadLine(); } # Skip all header lines
+
         while (!([string]::IsNullOrEmpty($Line)))
         {
             [int] $CommaIndex = $Line.IndexOf([char]',');
@@ -353,19 +354,23 @@ function ParseCapture([string] $csvFile)
             [int] $Clock = $Line[$CommaIndex + 1] - [char]'0';
             [int] $Data = $Line[$CommaIndex + 3] - [char]'0';
 
-            if (($Data -BXOR $LastData) -NE 0)
+            if ($Clock -GT $LastClock) # Clock rising edge
             {
-                [int] $Nanoseconds = $Line.Substring(0, $CommaIndex);
-                $OutputFile.WriteLine("$Nanoseconds,$TimeSinceLastDataTrans,$LastData");
-                $TimeSinceLastDataTrans = 0;
+                if (($LastRawData -BXOR $LastClockedData) -NE 0) # Data transition (sample right before the clock rising edge)
+                {
+                    [string] $Nanoseconds = $Line.Substring(0, $CommaIndex);
+                    $OutputFile.WriteLine("$Nanoseconds,$TimeSinceLastDataTrans,$LastClockedData");
+                    $OutputData += [PSCustomObject]@{ Nanoseconds = $Nanoseconds; CycleCount = $TimeSinceLastDataTrans; Bit = $LastClockedData };
+                    $TimeSinceLastDataTrans = 1;
+                }
+                else { $TimeSinceLastDataTrans++; }
+                $LastClockedData = $LastRawData;
             }
-            elseif (($Clock -GT $LastClock) -NE 0) { $TimeSinceLastDataTrans++; }
-            else { } #TODO: ???
-
             $LastClock = $Clock;
-            $LastData = $Data;
+            $LastRawData = $Data;
             $Line = $InputFile.ReadLine();
         }
+        return $OutputData;
     }
     finally
     {
@@ -374,10 +379,61 @@ function ParseCapture([string] $csvFile)
     }
 }
 
-function ReadPreamble()
+function ParseProcessedFile([string] $fileName)
 {
-
+    try
+    {
+        [StreamReader] $Reader = [StreamReader]::new($fileName);
+        $OutputData = @();
+        [string] $Line = $Reader.ReadLine();
+        while(!([string]::IsNullOrEmpty($Line)))
+        {
+            [int] $CommaIndex = $Line.IndexOf([char]',');
+            [int] $CommaIndex2 = $Line.IndexOf([char]',', $CommaIndex + 1);
+            [string] $Nanoseconds = $Line.Substring($CommaIndex);
+            [int] $CycleCount = $Line.Substring($CommaIndex + 1, ($CommaIndex2 - $CommaIndex - 1));
+            [int] $Bit = $Line.Substring($CommaIndex2 + 1);
+            $OutputData += [PSCustomObject]@{ Nanoseconds = $Nanoseconds; CycleCount = $CycleCount; Bit = $Bit };
+        }
+        return $OutputData;
+    }
+    finally
+    {
+        if ($Reader) { $Reader.Close(); }
+    }
 }
 
+function ReadSingleTest($DataArr, [ref] $Index)
+{
+    # Start Fence
+    $Data = $DataArr[$Index.Value++];
+    while (($Data.CycleCount -NE 10) -OR ($Data.Bit -NE 1)) { $Data = $DataArr[$Index.Value++]; }
 
+    # Test ID
+    if ($Data.Bit -NE 0) { throw 'Did not see a 0 bit to start the test ID'; }
+    [ushort] $TestID = 0;
+    $IDCycles = 0;
+    while ($IDCycles -LT 20)
+    {
+        if (($Data.CycleCount % 2) -NE 0) { throw 'Saw a non-even number of cycles in an entry while parsing the test ID.'; }
+        $TestID = $TestID -SHL ($Data.CycleCount / 2);
+        if ($Data.Bit -EQ 1) { $TestID = $TestID -BOR [ushort]([Math]::Pow(2, ($Data.CycleCount / 2)) - 1); }
+        $IDCycles += $Data.CycleCount;
+        $Data = $DataArr[$Index.Value++];
+    }
+    # TODO: Probably need to shift the ID right one to remove the extra cycle at the end
 
+    # Mid Fence
+    if (($Data.CycleCount -NE 10) -OR ($Data.Bit -NE 1)) { throw 'Could not find mid fence'; }
+    $Data = $DataArr[$Index.Value++];
+
+    # Test
+    $TestData = @();
+    while (($Data.CycleCount -NE 10) -OR ($Data.Bit -NE 1))
+    {
+        $TestData += $Data;
+        $Data = $DataArr[$Index.Value++];
+    }
+
+    return $TestData;
+}
