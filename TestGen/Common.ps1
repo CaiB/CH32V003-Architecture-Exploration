@@ -1,4 +1,5 @@
 using namespace System.Collections.Generic;
+using namespace System.IO;
 
 function GenerateSetup
 {
@@ -258,16 +259,125 @@ function BuildTest([string] $TestName)
     ExecuteActions 'cv_flash';
 }
 
+$JANKY_WORKAROUND = @"
+using System;
+using System.Diagnostics;
+public class JankyWorkaround
+{
+    public Process Process;
+    public bool GotFailure = false;
+    public bool GotReady = false;
+    public void Start(string args)
+    {
+        ProcessStartInfo Info = new ProcessStartInfo()
+        {
+            FileName = "C:\\Program Files\\sigrok\\sigrok-cli\\sigrok-cli.exe",
+            Arguments = args,
+            UseShellExecute = false,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true
+        };
+        this.Process = Process.Start(Info);
+        this.Process.EnableRaisingEvents = true;
+        this.Process.OutputDataReceived += HandleOutput;
+        this.Process.ErrorDataReceived += HandleOutput;
+        this.Process.BeginOutputReadLine();
+        this.Process.BeginErrorReadLine();
+    }
+    private void HandleOutput(object sender, DataReceivedEventArgs evt)
+    {
+        if (evt.Data == null) { return; }
+        if (evt.Data == "Failed to open device.") { this.GotFailure = true; }
+        if (evt.Data == "sr: session: Starting.") { this.GotReady = true; }
+        Console.WriteLine("SIGROK>" + evt.Data);
+    }
+}
+"@
+
 function StartListener([string] $csvFile)
 {
+    if (!('JankyWorkaround' -as [Type]))
+    {
+        Write-Host 'Adding the JankyWorkaround class...';
+        Add-Type -TypeDefinition $JANKY_WORKAROUND;
+    }
+    else { Write-Host 'WARNING: The JankyWorkaround class has already been loaded previously, no further changes to it will be reflected in this session.' }
+    [JankyWorkaround] $Jank = [JankyWorkaround]::new();
+
     $ArgList = @(
         '--driver', 'dreamsourcelab-dslogic',
-        '--config', 'voltage_threshold=1.2-1.2:samplerate=200M',
+        '--config', '"voltage_threshold=1.2-1.2:samplerate=100M"',
         '--output-file', "`"$csvFile`"",
-        '--output-format', 'csv:time=true:dedup=true:header=false',
+        '--output-format', '"csv:time=true:dedup=true:header=false"',
         '--channels', '0,1,2',
         '--triggers', '1=r',
-        '--samples', '50000'
+        '--samples', '50000',
+        '--loglevel', '3' # Why doesn't this one have a hyphen in the name???
     );
-    return Start-Process -NoNewWindow 'C:\Program Files\sigrok\sigrok-cli\sigrok-cli.exe' -ArgumentList $ArgList -PassThru;
+
+    $Jank.Start($ArgList);
+
+    $Timeout = $(Get-Date) + [TimeSpan]::FromSeconds(10);
+    while (!$Jank.GotFailure -AND !$Jank.GotReady -AND ($Timeout -GT $(Get-Date)))
+    {
+        Write-Host "Got fail? $($Jank.GotFailure), Got ready? $($Jank.GotReady)";
+        Start-Sleep -Milliseconds 500;
+    }
+
+    if ($Jank.GotFailure) { throw 'Sigrok failed to connect to the logic analyzer. Try replugging it or throwing Sigrok out the window in anger?'; }
+    elseif (!$Jank.GotReady) { throw 'Timed out waiting for Sigrok. Try replugging the logic analyzer?'; }
+
+    return $Jank.Process;
 }
+
+function ParseCapture([string] $csvFile)
+{
+    try
+    {
+        [StreamReader] $InputFile = [StreamReader]::new($csvFile);
+        [string] $OutputPath = $(Join-Path $([Path]::GetDirectoryName($csvFile)) "../Data/$([Path]::GetFileName($csvFile))" -Resolve);
+        [StreamWriter] $OutputFile = [StreamWriter]::new($OutputPath);
+        Write-Host "Saving output to $OutputPath";
+
+        $InputFile.ReadLine() | Out-Null; # Discard the header line
+
+        [int] $LastClock = 0;
+        [int] $LastData = 0;
+        [int] $TimeSinceLastDataTrans = 0;
+
+        [string] $Line = $InputFile.ReadLine();
+        while (!([string]::IsNullOrEmpty($Line)))
+        {
+            [int] $CommaIndex = $Line.IndexOf([char]',');
+            if ($CommaIndex -LE 0) { $Line = $InputFile.ReadLine(); continue; }
+            [int] $Clock = $Line[$CommaIndex + 1] - [char]'0';
+            [int] $Data = $Line[$CommaIndex + 3] - [char]'0';
+
+            if (($Data -BXOR $LastData) -NE 0)
+            {
+                [int] $Nanoseconds = $Line.Substring(0, $CommaIndex);
+                $OutputFile.WriteLine("$Nanoseconds,$TimeSinceLastDataTrans,$LastData");
+                $TimeSinceLastDataTrans = 0;
+            }
+            elseif (($Clock -GT $LastClock) -NE 0) { $TimeSinceLastDataTrans++; }
+            else { } #TODO: ???
+
+            $LastClock = $Clock;
+            $LastData = $Data;
+            $Line = $InputFile.ReadLine();
+        }
+    }
+    finally
+    {
+        if($InputFile) { $InputFile.Close(); }
+        if($OutputFile) { $OutputFile.Close(); }
+    }
+}
+
+function ReadPreamble()
+{
+
+}
+
+
+

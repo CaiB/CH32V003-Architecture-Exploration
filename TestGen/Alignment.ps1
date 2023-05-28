@@ -1,6 +1,12 @@
 # Generates two of every instruction, one aligned and one unaligned.
 # This is used to determine if the alignment of any individual instruction matters, but does not check the relationship between alignments of multiple instructions.
 
+[CmdletBinding()]
+param (
+    [Parameter()]
+    [switch] $NoCapture
+)
+
 $ErrorActionPreference = 'Stop';
 $TEST_NAME = 'Alignment';
 . .\Common.ps1
@@ -41,15 +47,21 @@ Set-Content (Join-Path $OutputDir "$TEST_NAME.S") -Value $Output;
 Write-Host 'Building and flashing program...';
 BuildTest $TEST_NAME;
 
-Write-Host 'Starting logic analyzer...';
-$ListenerProc = StartListener (Join-Path $PSScriptRoot "../Captures/$TEST_NAME.csv");
+if(!$NoCapture)
+{
+    Write-Host 'Starting logic analyzer...';
+    [string] $LACaptureCSV = Join-Path $PSScriptRoot "../Captures/$TEST_NAME.csv";
+    $ListenerProc = StartListener $LACaptureCSV;
+}
 
 Write-Host 'Starting the test program...';
 Start-Process -NoNewWindow -Wait "$script:MINICHLINK/minichlink" -ArgumentList @('-s', '0x04', '0x444F');
 
-Write-Host 'Waiting for logic analyzer...';
-$ListenerProc.WaitForExit();
+if(!$NoCapture)
+{
+    Write-Host 'Waiting for logic analyzer...';
+    $ListenerProc.WaitForExit();
 
-Write-Host 'Parsing output...';
-# TODO: Do
-
+    Write-Host 'Parsing output...';
+    ParseCapture $LACaptureCSV;
+}
