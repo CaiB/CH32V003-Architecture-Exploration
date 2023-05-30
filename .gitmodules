@@ -1,3 +1,6 @@
 [submodule "Firmware/ch32v003fun"]
 	path = Firmware/ch32v003fun
 	url = https://github.com/cnlohr/ch32v003fun.git
+[submodule "TestGen/DSView/UIAutomation"]
+	path = TestGen/DSView/UIAutomation
+	url = https://github.com/Descolada/UIAutomation.git

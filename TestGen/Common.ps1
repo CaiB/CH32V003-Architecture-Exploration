@@ -201,7 +201,7 @@ function FormatInstruction
     }
     else { $Instruction = $InstrObj; }
 
-    [string] $Line = "$Instruction.Format #TESTINSTR#$Name";
+    [string] $Line = "$($Instruction.Format) // #TESTINSTR#$Name";
     if ($Line -match '\[Dc\]')
     {
         if (-NOT $Dest) { $Dest = "x$(Get-Random -Minimum 8 -Maximum 16)"; } # Maximum is exclusive D:<
