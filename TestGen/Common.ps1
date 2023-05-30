@@ -1,5 +1,6 @@
 using namespace System.Collections.Generic;
 using namespace System.IO;
+using namespace System;
 
 function GenerateSetup
 {
@@ -188,7 +189,9 @@ function FormatInstruction
         [Parameter(Mandatory = $false)]
         [string] $Src2,
         [Parameter(Mandatory = $false)]
-        [int] $Immediate = [int]::MinValue
+        [int] $Immediate = [int]::MinValue,
+        [Parameter(Mandatory = $false)]
+        [string] $Name
     )
     if ($Instr)
     {
@@ -198,7 +201,7 @@ function FormatInstruction
     }
     else { $Instruction = $InstrObj; }
 
-    [string] $Line = $Instruction.Format;
+    [string] $Line = "$Instruction.Format #TESTINSTR#$Name";
     if ($Line -match '\[Dc\]')
     {
         if (-NOT $Dest) { $Dest = "x$(Get-Random -Minimum 8 -Maximum 16)"; } # Maximum is exclusive D:<
@@ -250,11 +253,11 @@ function BuildTest([string] $TestName)
     $script:TARGET = $TestName;
     $script:CH32V003FUN = (Join-Path $PSScriptRoot '../Firmware/ch32v003fun/ch32v003fun');
     $script:MINICHLINK = (Join-Path $PSScriptRoot '../Firmware/ch32v003fun/minichlink');
-    $script:ADDITIONAL_C_FILES += @("Generated/$TestName.S");
+    $script:ADDITIONAL_C_FILES += @($(Join-Path $PSScriptRoot "/Generated/$TestName.S"));
     $script:OVERRIDE_C = (Join-Path $PSScriptRoot '../Firmware/Firmware.c')
     
-    if (Test-Path '../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1') { . ../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1 }
-    else { . ../Firmware/ch32v003fun/build_scripts/ch32v003fun_base.ps1 }
+    if (Test-Path "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1") { . "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1"; }
+    else { . "$PSScriptRoot/../Firmware/ch32v003fun/build_scripts/ch32v003fun_base.ps1"; }
     ExecuteActions 'cv_flash';
 }
 
@@ -331,13 +334,16 @@ function StartListener([string] $csvFile)
 
 function ParseCapture([string] $csvFile)
 {
+    $OutputData = @();
+    [string] $TargetFolder = $(Join-Path $PSScriptRoot '../Captures/Postprocessed/');
+    if (!(Test-Path $TargetFolder)) { New-Item -Type Directory $TargetFolder; }
+    [string] $OutputPath = $(Join-Path $TargetFolder $([Path]::GetFileName($csvFile)));
+    Write-Host "Saving intermediate cycle-counted capture to $OutputPath";
+
     try
     {
-        $OutputData = @();
         [StreamReader] $InputFile = [StreamReader]::new($csvFile);
-        [string] $OutputPath = $(Join-Path $([Path]::GetDirectoryName($csvFile)) "../Data/$([Path]::GetFileName($csvFile))" -Resolve);
         [StreamWriter] $OutputFile = [StreamWriter]::new($OutputPath);
-        Write-Host "Saving output to $OutputPath";
 
         [int] $LastClock = 0;
         [int] $LastClockedData = 0;
@@ -408,16 +414,17 @@ function ReadSingleTest($DataArr, [ref] $Index)
     # Start Fence
     $Data = $DataArr[$Index.Value++];
     while (($Data.CycleCount -NE 10) -OR ($Data.Bit -NE 1)) { $Data = $DataArr[$Index.Value++]; }
+    $Data = $DataArr[$Index.Value++];
 
     # Test ID
     if ($Data.Bit -NE 0) { throw 'Did not see a 0 bit to start the test ID'; }
-    [ushort] $TestID = 0;
+    [UInt16] $TestID = 0;
     $IDCycles = 0;
     while ($IDCycles -LT 20)
     {
         if (($Data.CycleCount % 2) -NE 0) { throw 'Saw a non-even number of cycles in an entry while parsing the test ID.'; }
         $TestID = $TestID -SHL ($Data.CycleCount / 2);
-        if ($Data.Bit -EQ 1) { $TestID = $TestID -BOR [ushort]([Math]::Pow(2, ($Data.CycleCount / 2)) - 1); }
+        if ($Data.Bit -EQ 1) { $TestID = $TestID -BOR [UInt16]([Math]::Pow(2, ($Data.CycleCount / 2)) - 1); }
         $IDCycles += $Data.CycleCount;
         $Data = $DataArr[$Index.Value++];
     }

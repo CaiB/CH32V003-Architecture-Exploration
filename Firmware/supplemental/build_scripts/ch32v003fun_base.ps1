@@ -75,6 +75,20 @@ function ExecuteActions($ActionsToRun)
     }
 }
 
+function ClearVars
+{
+    $script:PREFIX = $null;
+    $script:CH32V003FUN = $null;
+    $script:MINICHLINK = $null;
+    $script:CFLAGS = $null;
+    $script:LDFLAGS = $null;
+    $script:SYSTEM_C = $null;
+    $script:TARGET_EXT = $null;
+    $script:TARGET = $null;
+    $script:OVERRIDE_C = $null;
+    $script:ADDITIONAL_C_FILES = $null;
+}
+
 function ShowActionList
 {
     $ActionNames = Flatten $script:AVAIL_ACTIONS.Keys;
@@ -107,9 +121,9 @@ function DoBin
     Start-Process -Wait -NoNewWindow "$script:PREFIX-size" -ArgumentList @("$script:TARGET.elf"); # Wait for this to finish, then do the rest in parallel
     $Processes = @();
     $Processes += Start-Process -NoNewWindow -PassThru "$script:PREFIX-objdump" -ArgumentList @('-S', "$script:TARGET.elf") -RedirectStandardOutput "$script:TARGET.lst";
-    $Processes += Start-Process -NoNewWindow -PassThru "$script:PREFIX-objdump" -ArgumentList @('-t', "$script:TARGET.elf") -RedirectStandardOutput "$script:TARGET.map";
+    # $Processes += Start-Process -NoNewWindow -PassThru "$script:PREFIX-objdump" -ArgumentList @('-t', "$script:TARGET.elf") -RedirectStandardOutput "$script:TARGET.map";
     $Processes += Start-Process -NoNewWindow -PassThru "$script:PREFIX-objcopy" -ArgumentList @('-O', 'binary', "$script:TARGET.elf", "$script:TARGET.bin");
-    $Processes += Start-Process -NoNewWindow -PassThru "$script:PREFIX-objcopy" -ArgumentList @('-O', 'ihex', "$script:TARGET.elf", "$script:TARGET.hex");
+    # $Processes += Start-Process -NoNewWindow -PassThru "$script:PREFIX-objcopy" -ArgumentList @('-O', 'ihex', "$script:TARGET.elf", "$script:TARGET.hex");
     foreach ($Proc in $Processes) { $Proc.WaitForExit(); }
 }
 
