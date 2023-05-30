@@ -2,6 +2,9 @@ using namespace System.Collections.Generic;
 using namespace System.IO;
 using namespace System;
 
+# Magic, IDK
+function Flatten($Nest) { ,@($Nest | % { if($null -NE $_) {$_} }); }
+
 function GenerateSetup
 {
     return @(
@@ -296,7 +299,7 @@ public class JankyWorkaround
 }
 "@
 
-function StartListener([string] $csvFile)
+function StartListenerSigrok([string] $csvFile)
 {
     if (!('JankyWorkaround' -as [Type]))
     {
@@ -332,18 +335,29 @@ function StartListener([string] $csvFile)
     return $Jank.Process;
 }
 
-function ParseCapture([string] $csvFile)
+function StartAHKScript
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string] $scriptFile,
+        [Parameter(Mandatory = $false, Position = 1)]
+        $AHKargs
+    )
+    $AHK_LOCATION = 'C:\Program Files\AutoHotkey\AutoHotkey.exe';
+    $AHKProc = $(Start-Process -Wait $AHK_LOCATION -ArgumentList $(Flatten @($scriptFile, $AHKargs)) -PassThru);
+    if ($AHKProc.ExitCode -NE 0) { throw "AHK returned exit code $($AHKProc.ExitCode)."; }
+}
+
+function ParseCapture([string] $csvFile, [string] $outputPath)
 {
     $OutputData = @();
-    [string] $TargetFolder = $(Join-Path $PSScriptRoot '../Captures/Postprocessed/');
-    if (!(Test-Path $TargetFolder)) { New-Item -Type Directory $TargetFolder; }
-    [string] $OutputPath = $(Join-Path $TargetFolder $([Path]::GetFileName($csvFile)));
-    Write-Host "Saving intermediate cycle-counted capture to $OutputPath";
+    Write-Host "Saving intermediate cycle-counted capture to $outputPath";
 
     try
     {
         [StreamReader] $InputFile = [StreamReader]::new($csvFile);
-        [StreamWriter] $OutputFile = [StreamWriter]::new($OutputPath);
+        [StreamWriter] $OutputFile = [StreamWriter]::new($outputPath);
 
         [int] $LastClock = 0;
         [int] $LastClockedData = 0;

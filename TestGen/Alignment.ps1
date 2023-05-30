@@ -4,11 +4,11 @@
 [CmdletBinding()]
 param (
     [Parameter()]
-    [switch] $NoCapture,
-    [switch] $ManualCapture,
+    [switch] $Clean,
     [switch] $NoProgram,
-    [switch] $NonInteractive,
-    [switch] $RandomOrder
+    [switch] $RandomOrder,
+    [ValidateSet('DSViewAHK', 'SigrokCLI', 'Manual', 'None')]
+    [string] $CaptureMethod
 )
 
 $ErrorActionPreference = 'Stop';
@@ -25,6 +25,17 @@ $script:ADDITIONAL_C_FILES = $null;
 
 $TEST_NAME = 'Alignment';
 . "$PSScriptRoot\Common.ps1"
+
+[string] $GeneratedASM = Join-Path $PSScriptRoot "/Generated/$TEST_NAME.S";
+[string] $LACaptureCSV = Join-Path $PSScriptRoot "../Captures/$TEST_NAME.csv";
+[string] $ProcessedCSV = Join-Path $PSScriptRoot "../Captures/Postprocessed/$TEST_NAME.csv";
+[string] $DataOutFile = Join-Path $PSScriptRoot "../Data/$TEST_NAME.csv";
+$AllFiles = @($GeneratedASM, $LACaptureCSV, $ProcessedCSV, $DataOutFile);
+if ($Clean) { Remove-Item $AllFiles -ErrorAction SilentlyContinue; }
+$AllFiles | Foreach-Object {
+    [string] $DirName = [Path]::GetDirectoryName($_);
+    if (!(Test-Path $DirName)) { New-Item -Type Directory $DirName; }
+}
 
 # Generate the assembly
 $Output = GenerateSetup;
@@ -84,58 +95,68 @@ foreach($TestEntry in $TestInformation)
 
 Write-Host "Generated tests: $([string]::Join([char]',',$($TestInformation | ForEach-Object {$_.Name}))))";
 
-$OutputDir = Join-Path $PSScriptRoot './Generated/';
-if (!(Test-Path $OutputDir)) { New-Item -ItemType Directory $OutputDir; }
-Set-Content (Join-Path $OutputDir "$TEST_NAME.S") -Value $Output;
+Set-Content $GeneratedASM -Value $Output;
 
-[string] $LACaptureCSV = Join-Path $PSScriptRoot "../Captures/$TEST_NAME.csv";
 if (!$NoProgram)
 {
     Write-Host 'Building and flashing program...';
     BuildTest $TEST_NAME;
+}
 
-    if(!$NoCapture -AND !$ManualCapture)
-    {
-        Write-Host 'Starting logic analyzer...';
-        $ListenerProc = StartListener $LACaptureCSV;
+
+switch ($CaptureMethod)
+{
+    'None' { break; }
+    'Manual' { break; }
+    'DSViewAHK' {
+        Write-Host 'Starting logic analyzer via AHK on DSView...';
+        StartAHKScript $(Join-Path $PSScriptRoot '/DSView/StartCapture.ahk');
     }
-
-    Write-Host 'Starting the test program...';
-    Start-Process -NoNewWindow -Wait "$script:MINICHLINK/minichlink" -ArgumentList @('-s', '0x04', '0x444F');
+    'SigrokCLI' {
+        Write-Host 'Starting logic analyzer via Sigrok...';
+        $SigrokProc = StartListenerSigrok $LACaptureCSV;
+    }
 }
 
-if(!$NoCapture -AND !$ManualCapture)
-{
-    Write-Host 'Waiting for logic analyzer...';
-    $ListenerProc.WaitForExit();
-}
+Write-Host 'Starting the test program...';
+Start-Process -NoNewWindow -Wait "$script:MINICHLINK/minichlink" -ArgumentList @('-s', '0x04', '0x444F');
 
-if (!$NoCapture)
+switch ($CaptureMethod)
 {
-    if($ManualCapture)
-    {
+    'None' { return; }
+    'Manual' {
         Write-Host 'Press any key once you have saved the CSV file.';
-        if(!$NonInteractive) { [Console]::ReadKey() | Out-Null; }
+        [Console]::ReadKey() | Out-Null;
     }
-    Write-Host 'Parsing output...';
-    $ParsedData = ParseCapture $LACaptureCSV;
-
-    [string] $DataOutFile = Join-Path $PSScriptRoot '../Data/Alignment.csv';
-    Write-Host "Saving test results to $DataOutFile";
-    [StreamWriter] $OutputFile = [StreamWriter]::new($DataOutFile);
-    $OutputFile.WriteLine('Test,CyclesAligned,CyclesMisaligned');
-    [int] $DataIndex = 0;
-    foreach($TestEntry in $TestInformation)
-    {
-        $TestData = ReadSingleTest $ParsedData ([ref]$DataIndex);
-        if ($TestData.Count -NE 5) { Write-Host "The data for test '$($TestEntry.Name)' was $($TestData.Count) items long, expected 5."; continue; }
-        if (($TestData[0].Bit -NE 0) -OR
-            ($TestData[1].Bit -NE 1) -OR
-            ($TestData[2].Bit -NE 0) -OR
-            ($TestData[3].Bit -NE 1) -OR
-            ($TestData[4].Bit -NE 0)) { Write-Host "Got bad data pattern for test '$($TestEntry.Name)': $TestData"; continue; }
-        
-        $OutputFile.WriteLine("$($TestEntry.Name),$($TestData[1].CycleCount - 2),$($TestData[3].CycleCount - 2)");
+    'DSViewAHK' {
+        Write-Host 'Exporting logic analyzer data via AHK on DSView...';
+        StartAHKScript $(Join-Path $PSScriptRoot '/DSView/ExportCapture.ahk') @($([Path]::GetDirectoryName($LACaptureCSV)), $([Path]::GetFileName($LACaptureCSV)));
     }
-    $OutputFile.Close();
+    'SigrokCLI' {
+        Write-Host 'Waiting for logic analyzer...';
+        $SigrokProc.WaitForExit();
+    }
 }
+
+Write-Host 'Parsing output...';
+[string] $PostprocDir = $(Join-Path $PSScriptRoot '../Captures/Postprocessed/');
+if (!(Test-Path $PostprocDir)) { New-Item -Type Directory $PostprocDir; }
+$ParsedData = ParseCapture $LACaptureCSV $ProcessedCSV;
+
+Write-Host "Saving test results to $DataOutFile";
+[StreamWriter] $OutputFile = [StreamWriter]::new($DataOutFile);
+$OutputFile.WriteLine('Test,CyclesAligned,CyclesMisaligned');
+[int] $DataIndex = 0;
+foreach($TestEntry in $TestInformation)
+{
+    $TestData = ReadSingleTest $ParsedData ([ref]$DataIndex);
+    if ($TestData.Count -NE 5) { Write-Host "The data for test '$($TestEntry.Name)' was $($TestData.Count) items long, expected 5."; continue; }
+    if (($TestData[0].Bit -NE 0) -OR
+        ($TestData[1].Bit -NE 1) -OR
+        ($TestData[2].Bit -NE 0) -OR
+        ($TestData[3].Bit -NE 1) -OR
+        ($TestData[4].Bit -NE 0)) { Write-Host "Got bad data pattern for test '$($TestEntry.Name)': $TestData"; continue; }
+    
+    $OutputFile.WriteLine("$($TestEntry.Name),$($TestData[1].CycleCount - 2),$($TestData[3].CycleCount - 2)");
+}
+$OutputFile.Close();
