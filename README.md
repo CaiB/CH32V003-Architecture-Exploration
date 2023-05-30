@@ -1,5 +1,7 @@
 # CH32V003-Architecture-Exploration
 
+## [Click here for the Instruction/Register List](https://github.com/CaiB/CH32V003-Architecture-Exploration/blob/main/InstructionTypes.md)
+
 My attempts to poke at the CH32V003 chip to learn about its instruction timings and architecture.
 
 The tools used in this process were built quickly, and are not of high quality. I hope you don't need to use them.
