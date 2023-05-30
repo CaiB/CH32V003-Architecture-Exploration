@@ -31,33 +31,40 @@ $Output = GenerateSetup;
 $Instructions = (GetInstructions -Blacklist Memory,Branch);
 if ($RandomOrder) { $Instructions = $Instructions | Sort-Object {Get-Random}; }
 
-$TestNames = @();
+$TestInformation = $Instructions | ForEach-Object {
+    [PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x3"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = 16; Count = 3 },
+    #[PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x5"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = 16; Count = 5 },
+    [PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x7"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = 16; Count = 7 }
+};
 
 [byte] $ID = 0;
-foreach($Instr in $Instructions)
+foreach($TestEntry in $TestInformation)
 {
     $Output += GenerateTestStart $ID -Description $Instr.Name;
     $Output += @(
         '.balign 4',
         'c.nop',
-        'PIN_ON_A',
-        (FormatInstruction $Instr -Dest 'a3' -Src1 'a1' -Src2 'a2' -Immediate 16 -Name "$($Instr.Name) Test Aligned I1 Aligned"),
-        (FormatInstruction $Instr -Dest 'a3' -Src1 'a1' -Src2 'a2' -Immediate 16 -Name "$($Instr.Name) Test Aligned I2 Misaligned"),
-        (FormatInstruction $Instr -Dest 'a3' -Src1 'a1' -Src2 'a2' -Immediate 16 -Name "$($Instr.Name) Test Aligned I3 Aligned"),
+        'PIN_ON_A'
+    );
+    for ($i = 0; $i -LT $TestEntry.Count; $i++)
+    {
+        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate -Name "$($TestEntry.Name) Test Aligned I$i ($(if($i % 2 -EQ 0) { 'A' } else { 'Misa' })ligned)");
+    }
+    $Output += @(
         'PIN_OFF_A',
         '.balign 4',
         'c.nop',
         'c.nop',
-        'PIN_ON_A',
-        (FormatInstruction $Instr -Dest 'a3' -Src1 'a1' -Src2 'a2' -Immediate 16 -Name "$($Instr.Name) Test Misaligned I1 Misaligned"),
-        (FormatInstruction $Instr -Dest 'a3' -Src1 'a1' -Src2 'a2' -Immediate 16 -Name "$($Instr.Name) Test Misaligned I2 Aligned"),
-        (FormatInstruction $Instr -Dest 'a3' -Src1 'a1' -Src2 'a2' -Immediate 16 -Name "$($Instr.Name) Test Misaligned I3 Misaligned"),
-        'PIN_OFF_A'
+        'PIN_ON_A'
     );
+    for ($i = 0; $i -LT $TestEntry.Count; $i++)
+    {
+        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate -Name "$($TestEntry.Name) Test Misligned I$i ($(if($i % 2 -EQ 0) { 'Misa' } else { 'A' })ligned)");
+    }
+    $Output += 'PIN_OFF_A'
     $Output += GenerateTestEnd;
 
     $ID++;
-    $TestNames += $Instr.Name;
 }
 
 #$LoadStoreInstructions = @(
@@ -73,10 +80,9 @@ foreach($Instr in $Instructions)
 #    $Output += GenerateTestEnd;
 #
 #    $ID++;
-#    $TestNames += $LSInstr.Name;
 #}
 
-Write-Host "Generated tests: $([string]::Join([char]',',$TestNames))";
+Write-Host "Generated tests: $([string]::Join([char]',',$($TestInformation | ForEach-Object {$_.Name}))))";
 
 $OutputDir = Join-Path $PSScriptRoot './Generated/';
 if (!(Test-Path $OutputDir)) { New-Item -ItemType Directory $OutputDir; }
@@ -119,17 +125,17 @@ if (!$NoCapture)
     [StreamWriter] $OutputFile = [StreamWriter]::new($DataOutFile);
     $OutputFile.WriteLine('Test,CyclesAligned,CyclesMisaligned');
     [int] $DataIndex = 0;
-    foreach($TestName in $TestNames)
+    foreach($TestEntry in $TestInformation)
     {
         $TestData = ReadSingleTest $ParsedData ([ref]$DataIndex);
-        if ($TestData.Count -NE 5) { Write-Host "The data for test '$TestName' was $($TestData.Count) items long, expected 5."; continue; }
+        if ($TestData.Count -NE 5) { Write-Host "The data for test '$($TestEntry.Name)' was $($TestData.Count) items long, expected 5."; continue; }
         if (($TestData[0].Bit -NE 0) -OR
             ($TestData[1].Bit -NE 1) -OR
             ($TestData[2].Bit -NE 0) -OR
             ($TestData[3].Bit -NE 1) -OR
-            ($TestData[4].Bit -NE 0)) { Write-Host "Got bad data pattern for test '$TestName': $TestData"; continue; }
+            ($TestData[4].Bit -NE 0)) { Write-Host "Got bad data pattern for test '$($TestEntry.Name)': $TestData"; continue; }
         
-        $OutputFile.WriteLine("$TestName,$($TestData[1].CycleCount - 2),$($TestData[3].CycleCount - 2)");
+        $OutputFile.WriteLine("$($TestEntry.Name),$($TestData[1].CycleCount - 2),$($TestData[3].CycleCount - 2)");
     }
     $OutputFile.Close();
 }

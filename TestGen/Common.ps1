@@ -68,7 +68,7 @@ function GenerateTestEnd
     return @(
         'nop; nop; nop; nop; // x4',
         'PIN_ON_A',
-        'nop; nop; nop; nop; nop; nop; nop; nop; // x8',
+        'nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; nop; // x18',
         'PIN_OFF_A',
         '// Test end'
     );
@@ -429,6 +429,7 @@ function ReadSingleTest($DataArr, [ref] $Index)
         $Data = $DataArr[$Index.Value++];
     }
     # TODO: Probably need to shift the ID right one to remove the extra cycle at the end
+    # TODO: Actually use ID, don't just assume 1 after another
 
     # Mid Fence
     if (($Data.CycleCount -NE 10) -OR ($Data.Bit -NE 1)) { throw 'Could not find mid fence'; }
@@ -436,7 +437,7 @@ function ReadSingleTest($DataArr, [ref] $Index)
 
     # Test
     $TestData = @();
-    while (($Data.CycleCount -NE 10) -OR ($Data.Bit -NE 1))
+    while (($Data.CycleCount -NE 20) -OR ($Data.Bit -NE 1))
     {
         $TestData += $Data;
         $Data = $DataArr[$Index.Value++];
