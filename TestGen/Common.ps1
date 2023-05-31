@@ -250,7 +250,7 @@ function FormatInstruction
     return $Line;
 }
 
-function BuildTest([string] $TestName)
+function BuildTest([string] $TestName, [switch] $NoFlash)
 {
     $script:ACTIONS_ENUM_ONLY = $false;
     $script:TARGET = $TestName;
@@ -261,7 +261,113 @@ function BuildTest([string] $TestName)
     
     if (Test-Path "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1") { . "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1"; }
     else { . "$PSScriptRoot/../Firmware/ch32v003fun/build_scripts/ch32v003fun_base.ps1"; }
-    ExecuteActions 'cv_flash';
+    if ($NoFlash) { ExecuteActions 'build'; }
+    else { ExecuteActions 'cv_flash'; }
+}
+
+function ExportMarkerLocations
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string] $LSTFile,
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string] $OutputFile,
+        [Parameter(Mandatory = $true, Position = 2)]
+        [string] $MarkerRegex,
+        [Parameter(Mandatory = $false)]
+        [uint] $CheckOpcode
+    )
+
+    try
+    {
+        if (!(Test-Path $LSTFile)) { throw "LST file cannot be searched for markers '$MarkerRegex' as the file doesn't exist."; }
+        # Write-Host "Reading file for marker locations: '$LSTFile'";
+        [StreamReader] $InputFileReader = [StreamReader]::new($LSTFile);
+        $OutputData = @();
+        $ReturnData = @();
+        [string] $Line = $InputFileReader.ReadLine();
+        while (!($InputFileReader.EndOfStream))
+        {
+            $Line = $InputFileReader.ReadLine();
+
+            if ($Line -match $MarkerRegex)
+            {
+                [int] $TestID = $Matches[1];
+                [string] $NextLine = $InputFileReader.ReadLine();
+                if ($NextLine -match '^\s*([\da-fA-F]+):\s*([\da-fA-F]+)\s+')
+                {
+                    [uint] $Location = 0;
+                    if (!([uint]::TryParse($Matches[1], [System.Globalization.NumberStyles]::HexNumber, $null, [ref]$Location)))
+                    {
+                        Write-Error "Failed to parse line for location after marker for '$MarkerRegex' at test ID $TestID. Line was '$NextLine'";
+                        continue;
+                    }
+                    if ($PSBoundParameters.ContainsKey('CheckOpcode'))
+                    {
+                        [uint] $InstrCode = 0;
+                        if (!([uint]::TryParse($Matches[2], [System.Globalization.NumberStyles]::HexNumber, $null, [ref]$InstrCode)))
+                        {
+                            Write-Error "Failed to parse line for instruction code after marker for '$MarkerRegex' at test ID $TestID. Line was '$NextLine'";
+                            continue;
+                        }
+                        if ($InstrCode -NE $CheckOpcode)
+                        {
+                            Write-Error $("Found incorrect instruction code 0x'{0:X8}' (expected 0x{1:X8}) after marker for '{2}' at test ID {3}. Line was '{4}'" -F $InstrCode, $Opcode, $MarkerRegex, $TestID, $NextLine);
+                            continue;
+                        }
+                    }
+                    $OutputData += $('{0},{1:X8}' -F $TestID, $Location);
+                    $ReturnData += $Location;
+                }
+                
+            }
+        }
+        Set-Content -Path $OutputFile -Value $OutputData;
+        return $ReturnData;
+    }
+    finally
+    {
+        if ($InputFileReader) { $InputFileReader.Close(); }
+    }
+}
+
+function ReplaceInstruction
+{
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [string] $BinFile,
+        [Parameter(Mandatory = $true)]
+        [string] $OutputFile,
+        [Parameter(Mandatory = $true)]
+        [uint] $Location,
+        [Parameter(Mandatory = $true)]
+        [uint] $New,
+        [Parameter(Mandatory = $false)]
+        [uint] $Expect,
+        [switch] $Compressed
+    )
+
+    [byte[]] $BinBytes = [File]::ReadAllBytes($BinFile);
+    [int] $InstrSize = 4;
+    if ($Compressed) { $InstrSize = 2; }
+    [bool] $DoCheck = $PSBoundParameters.ContainsKey('Expect');
+
+    for ($i = 0; $i -LT $InstrSize; $i++)
+    {
+        [int] $BinLocation = $Location + $i;
+
+        [byte] $Expected = ($Expect -SHR ($i * 8)) -BAND 0xFF;
+        # Write-Host $("Expecting {0:X2} at location 0x{1:X8}" -F $Expected, $BinLocation);
+
+        if ($DoCheck -AND ($Expected -NE $BinBytes[$BinLocation])) { throw $("Expected byte 0x{0:X2} at location 0x{1:X8}, but found 0x{2:X2} instead" -F $Expected, $BinLocation, $BinBytes[$BinLocation]); }
+
+        [byte] $NewByte = $New -SHR ($i * 8);
+        $BinBytes[$BinLocation] = $NewByte;
+    }
+
+    [File]::WriteAllBytes($OutputFile, $BinBytes);
 }
 
 $JANKY_WORKAROUND = @"
@@ -352,7 +458,7 @@ function StartAHKScript
 function ParseCapture([string] $csvFile, [string] $outputPath)
 {
     $OutputData = @();
-    Write-Host "Saving intermediate cycle-counted capture to $outputPath";
+    # Write-Host "Saving intermediate cycle-counted capture to $outputPath";
 
     try
     {
@@ -366,6 +472,8 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
 
         [string] $Line = $InputFile.ReadLine();
         while ($Line -notmatch '^\d') { $Line = $InputFile.ReadLine(); } # Skip all header lines
+        [string] $PrevLine = '';
+        [float] $PrevNanoseconds;
 
         while (!([string]::IsNullOrEmpty($Line)))
         {
@@ -373,14 +481,26 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
             if ($CommaIndex -LE 0) { $Line = $InputFile.ReadLine(); continue; }
             [int] $Clock = $Line[$CommaIndex + 1] - [char]'0';
             [int] $Data = $Line[$CommaIndex + 3] - [char]'0';
+            [string] $NanosecondsStr = $Line.Substring(0, $CommaIndex);
+            [float] $Nanoseconds = 0;
+            if ([float]::TryParse($NanosecondsStr, [ref]$Nanoseconds))
+            {
+                [float] $CyclesSinceLastClock = ($Nanoseconds - $PrevNanoseconds) * 48000000;
+                if ($CyclesSinceLastClock -GT 3)
+                {
+                    $OutputFile.WriteLine("$NanosecondsStr,$CyclesSinceLastClock,2")
+                    $OutputData += [PSCustomObject]@{ Nanoseconds = $NanosecondsStr; CycleCount = $CyclesSinceLastClock; Bit = -1 };
+                    Write-Host "Found $CyclesSinceLastClock missing clock cycles!";
+                }
+            }
+            else { Write-Error "Could not parse nanoseconds number from '$NanosecondsStr'. Clock fail detection will not work."; }
 
             if ($Clock -GT $LastClock) # Clock rising edge
             {
                 if (($LastRawData -BXOR $LastClockedData) -NE 0) # Data transition (sample right before the clock rising edge)
                 {
-                    [string] $Nanoseconds = $Line.Substring(0, $CommaIndex);
-                    $OutputFile.WriteLine("$Nanoseconds,$TimeSinceLastDataTrans,$LastClockedData");
-                    $OutputData += [PSCustomObject]@{ Nanoseconds = $Nanoseconds; CycleCount = $TimeSinceLastDataTrans; Bit = $LastClockedData };
+                    $OutputFile.WriteLine("$NanosecondsStr,$TimeSinceLastDataTrans,$LastClockedData");
+                    $OutputData += [PSCustomObject]@{ Nanoseconds = $NanosecondsStr; CycleCount = $TimeSinceLastDataTrans; Bit = $LastClockedData };
                     $TimeSinceLastDataTrans = 1;
                 }
                 else { $TimeSinceLastDataTrans++; }
@@ -388,8 +508,18 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
             }
             $LastClock = $Clock;
             $LastRawData = $Data;
+            $PrevLine = $Line;
+            $PrevNanoseconds = $Nanoseconds;
             $Line = $InputFile.ReadLine();
         }
+
+        # Output one last entry for the last state
+        [int] $CommaIndex = $PrevLine.IndexOf([char]',');
+        if ($CommaIndex -LE 0) { Write-Error 'Couldn''t parse last line'; }
+        [string] $NanosecondsStr = $PrevLine.Substring(0, $CommaIndex);
+        $OutputFile.WriteLine("$NanosecondsStr,$TimeSinceLastDataTrans,$LastClockedData")
+        $OutputData += [PSCustomObject]@{ Nanoseconds = $NanosecondsStr; CycleCount = $TimeSinceLastDataTrans; Bit = $LastClockedData };
+        
         return $OutputData;
     }
     finally
@@ -423,7 +553,7 @@ function ParseProcessedFile([string] $fileName)
     }
 }
 
-function ReadSingleTest($DataArr, [ref] $Index)
+function ReadSingleTest($DataArr, [ref] $Index, [switch] $SeekOnly)
 {
     # Start Fence
     $Data = $DataArr[$Index.Value++];
@@ -447,6 +577,7 @@ function ReadSingleTest($DataArr, [ref] $Index)
 
     # Mid Fence
     if (($Data.CycleCount -NE 10) -OR ($Data.Bit -NE 1)) { throw 'Could not find mid fence'; }
+    if ($SeekOnly) { return; } # This just puts Index in the right location to read the test results, but lets the user do that.
     $Data = $DataArr[$Index.Value++];
 
     # Test
