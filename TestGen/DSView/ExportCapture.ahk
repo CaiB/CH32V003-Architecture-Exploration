@@ -19,14 +19,14 @@ MainWindow := UIA.ElementFromHandle("ahk_exe DSView.exe")
 ; Find and click the start button
 SampleBar := MainWindow.FindFirstByNameAndType("Sampling Bar", 50021)
 SampleBar.WaitElementExistByNameAndType("Start", "Button") ; Wait for it to finish capturing
-Sleep, 1500
+Sleep, 250
 
 ; Find and click the File dropdown button, then activate the Export subitem
 FileBar := MainWindow.FindFirstByNameAndType("File Bar", 50021)
 FileBtn := FileBar.FindFirstByNameAndType("File", "Button")
 FileBtn.SetFocus()
 FileBtn.ControlClick()
-Sleep, 500
+Sleep, 250
 
 ; Can't figure out why this doesn't work
 ;ExportBtn := MainWindow.FindFirstByNameAndType("'Export...'", 50011)
@@ -56,7 +56,7 @@ SendInput {Enter}
 FileNameBox := Dialog.WaitElementExistByNameAndType("File name:", 50004)
 FileNameBox.SetValue(A_Args[2])
 FileBrowser.FindFirstByNameAndType("Save", 50000).Click()
-Sleep, 500
+Sleep, 250
 
 ; If a confirmation appears for file already exists, click yes
 ConfirmBox := FileBrowser.WaitElementExistByNameAndType("Confirm Save As", 50032,,,,1000)
@@ -69,5 +69,5 @@ MainWindow.WaitElementNotExist("Name=Export Data AND Type=50032")
 OKButton := Dialog.WaitElementExistByNameAndType("OK", 50000).Click()
 while (IsObject(Dialog.FindFirstByNameAndType("OK", 50000)))
     Sleep, 250
-Sleep, 500
+Sleep, 250
 ExitApp, 0

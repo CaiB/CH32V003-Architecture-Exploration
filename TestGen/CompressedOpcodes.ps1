@@ -79,6 +79,10 @@ Write-Host "Saving test results to $DataOutFile";
 [string] $BackupFolder = $(Join-Path $PSScriptRoot "../Data/${TEST_NAME}_ALL/");
 if (!(Test-Path $BackupFolder)) { New-Item -ItemType Directory $BackupFolder | Out-Null; }
 
+[System.Diagnostics.Stopwatch] $LoopTimer = [System.Diagnostics.Stopwatch]::new();
+[float] $AvgTimeTaken = 0;
+[int] $TestsFinished = 0;
+
 try
 {
     for ($InstrCode = 0x0000; $InstrCode -LT 0xFFFF; $InstrCode++)
@@ -86,6 +90,7 @@ try
         if (($InstrCode -BAND 0x0003) -EQ 0x0003) { continue; } # This isn't a valid compressed instruction
         try
         {
+            $LoopTimer.Restart();
             ReplaceInstruction $TemplateBIN -OutputFile $(Join-Path $PSScriptRoot "${TEST_NAME}.bin") -Compressed -Location $TestMarkers[0] -Expect $TEST_MARKER_INSTR -New $InstrCode;
 
             Write-Host 'Flashing program variation...';
@@ -162,8 +167,14 @@ try
 
             $OutputFile.WriteLine($OutputLine);
             $OutputFile.Flush();
+            $TestsFinished++;
 
             Write-Host $('====== Finished 0x{0:X4}, got {1} ======' -F $InstrCode, $OutputLine);
+            $LoopTimer.Stop();
+            if ($AvgTimeTaken -EQ 0) { $AvgTimeTaken = $LoopTimer.ElapsedMilliseconds; }
+            else { $AvgTimeTaken = ($AvgTimeTaken * 0.95) + (0.05 * $LoopTimer.ElapsedMilliseconds); }
+            [TimeSpan] $ETA = [TimeSpan]::FromSeconds((49152 - $TestsFinished) * $AvgTimeTaken / 1000);
+            Write-Host $('====== Took {0:F0}ms (avg {1:F0}ms), ETA: {2} ======' -F $LoopTimer.ElapsedMilliseconds, $AvgTimeTaken, $ETA.ToString('hh\h\:mm\m\:ss\s'));
         }
         catch
         {
