@@ -84,7 +84,7 @@ Immediate bits are often not in order
 Immediate bits are often not in order
 ```
  Instruction              |  Operation
-jal [DEST], [IMM]         | DEST = pc + 4B; pc += (SE(20b immediate) * 2B);
+jal  [DEST], [IMM]        | DEST = pc + 4B; pc += (SE(20b immediate) * 2B);
 jalr [DEST], [SRC], [IMM] | DEST = pc + 4B; pc  = (SE(12b immediate) + SRC) & 0xFFFFFFFE;
 ```
 
@@ -108,8 +108,8 @@ Immediate bits are often not in order
 Immediate bits are often not in order
 ```
  Instruction               |  Operation
-beq [SRC1], [SRC2], [IMM]  | pc += (SRC1 == SRC2) ? (SE(12b immediate) * 2B) : 4B
-bne [SRC1], [SRC2], [IMM]  | pc += (SRC1 != SRC2) ? (SE(12b immediate) * 2B) : 4B
+beq  [SRC1], [SRC2], [IMM] | pc += (SRC1 == SRC2) ? (SE(12b immediate) * 2B) : 4B
+bne  [SRC1], [SRC2], [IMM] | pc += (SRC1 != SRC2) ? (SE(12b immediate) * 2B) : 4B
 blt  [SRC1], [SRC2], [IMM] | pc += (  signed(SRC1) <    signed(SRC2)) ? (SE(12b immediate) * 2B) : 4B
 bltu [SRC1], [SRC2], [IMM] | pc += (unsigned(SRC1) <  unsigned(SRC2)) ? (SE(12b immediate) * 2B) : 4B
 bge  [SRC1], [SRC2], [IMM] | pc += (  signed(SRC1) >=   signed(SRC2)) ? (SE(12b immediate) * 2B) : 4B
