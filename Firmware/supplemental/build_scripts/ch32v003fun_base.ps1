@@ -96,6 +96,40 @@ function ShowActionList
     Write-Host "Available actions: $ActionNames";
 }
 
+function CheckStep([string] $StepName, $RequiredInputs, $OptionalInputs, $Outputs)
+{
+    $DEBUG = $false;
+    foreach ($Output in $Outputs)
+    {
+        if(!(Test-Path $Output))
+        {
+            if($DEBUG) { Write-Host "[BUILD] Step '$StepName' needs to run because output file '$Output' doesn't yet exist"; }
+            return $true;
+        }
+    }
+    $CleanOutputs = $Outputs | Foreach-Object { Resolve-Path $_ -ErrorAction SilentlyContinue };
+    [DateTime] $NewestOutput = ($CleanOutputs | Foreach-Object { [File]::GetLastWriteTime($(Resolve-Path $_)) } | Sort-Object | Select-Object -First 1);
+    if($DEBUG) { Write-Host "[BUILD] Step '$StepName' found newest output file to be $NewestOutput"; }
+
+    foreach ($Prerequisite in $RequiredInputs)
+    {
+        if (!(Test-Path $Prerequisite)) { throw "Build step '$StepName' requires the file '$Prerequisite', but it does not exist"; }
+        if ([File]::GetLastWriteTime($(Resolve-Path $Prerequisite)) -GT $NewestOutput)
+        {
+            if($DEBUG) { Write-Host "[BUILD] Step '$StepName' needs to run because required input '$Prerequisite' is newer than the newest output"; }
+            return $true;
+        }
+    }
+    foreach ($Prerequisite in $OptionalInputs)
+    {
+        if ([File]::GetLastWriteTime($(Resolve-Path $Prerequisite)) -GT $NewestOutput)
+        {
+            if($DEBUG) { Write-Host "[BUILD] Step '$StepName' needs to run because optional input '$Prerequisite' is newer than the newest output (which was $NewestOutput)"; }
+            return $true;
+        }
+    }
+}
+
 ### Build Procedures
 # Define procedures
 function DoElf
@@ -105,10 +139,8 @@ function DoElf
     $RequiredFiles = @($script:SYSTEM_C, $TargetWithExt, $script:ADDITIONAL_C_FILES);
     $RequiredFiles = Flatten $RequiredFiles;
 
-    foreach ($Prerequisite in $RequiredFiles)
-    {
-        if (!(Test-Path $Prerequisite)) { throw "The file '$Prerequisite' is required."; }
-    }
+    [bool] $DoStep = $(CheckStep -StepName 'DoElf' -RequiredInputs $RequiredFiles -OptionalInputs $null -Outputs @("$script:TARGET.elf"));
+    if (!$DoStep) { return; }
 
     [string[]] $ProcArgs = @('-o', "$script:TARGET.elf", $RequiredFiles, $script:CFLAGS, $script:LDFLAGS);
     $CompilerProc = Start-Process -NoNewWindow -Wait "$script:PREFIX-gcc" -ArgumentList $ProcArgs -PassThru;
@@ -118,6 +150,17 @@ function DoElf
 function DoBin
 {
     DoElf;
+
+    $OutputFiles = @(
+        "$script:TARGET.lst",
+        #"$script:TARGET.map",
+        "$script:TARGET.bin"
+        #"$script:TARGET.hex"
+    );
+    [bool] $DoStep = $(CheckStep -StepName 'DoBin' -RequiredInputs @("$script:TARGET.elf") -OptionalInputs $null -Outputs $OutputFiles);
+    if (!$DoStep) { return; }
+    Write-Host 'dobin2';
+
     Start-Process -Wait -NoNewWindow "$script:PREFIX-size" -ArgumentList @("$script:TARGET.elf"); # Wait for this to finish, then do the rest in parallel
     $Processes = @();
     $Processes += Start-Process -NoNewWindow -PassThru "$script:PREFIX-objdump" -ArgumentList @('-S', "$script:TARGET.elf") -RedirectStandardOutput "$script:TARGET.lst";
