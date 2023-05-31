@@ -6,3 +6,4 @@ sigrock-cli-install.exe
 Captures/**
 TestGen/Generated/**
 TestGen/**.bin
+Data/CompressedOpcodes_All/**

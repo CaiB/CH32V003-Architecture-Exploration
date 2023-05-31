@@ -72,8 +72,8 @@ $TestMarkers =   ExportMarkerLocations -LSTFile $(Join-Path $PSScriptRoot "${TES
 
 Move-Item $(Join-Path $PSScriptRoot "${TEST_NAME}.bin") $TemplateBIN -Force;
 
-[StreamWriter] $OutputFile = [StreamWriter]::new($DataOutFile);
-$OutputFile.WriteLine('InstrCode,CyclesTaken,ClockStop,LaterCyclesTaken');
+[StreamWriter] $OutputFile = [StreamWriter]::new($DataOutFile, $true);
+$OutputFile.WriteLine('InstrCode,CyclesTaken,ClockStop,LaterCyclesTaken,{0}' -F (Get-Date).ToString('yyyy-MM-dd,HH:mm:ss'));
 Write-Host "Saving test results to $DataOutFile";
 
 [string] $BackupFolder = $(Join-Path $PSScriptRoot "../Data/${TEST_NAME}_ALL/");
@@ -85,7 +85,8 @@ if (!(Test-Path $BackupFolder)) { New-Item -ItemType Directory $BackupFolder | O
 
 try
 {
-    for ($InstrCode = 0x0000; $InstrCode -LT 0xFFFF; $InstrCode++)
+    [UInt16] $START_INSTR = 0x0C9C;
+    for ($InstrCode = $START_INSTR; $InstrCode -LT 0xFFFF; $InstrCode++)
     {
         if (($InstrCode -BAND 0x0003) -EQ 0x0003) { continue; } # This isn't a valid compressed instruction
         try
@@ -132,7 +133,7 @@ try
                 }
             }
 
-            [string] $ThisBackup = Join-Path $BackupFolder $("/{0:X4}" -F $InstrCode);
+            [string] $ThisBackup = Join-Path $BackupFolder $("/{0:X2}/{1:X2}" -F (($InstrCode -SHR 8) -BAND 0xFF), ($InstrCode -BAND 0xFF));
             if (!(Test-Path $ThisBackup)) { New-Item -ItemType Directory $ThisBackup | Out-Null; }
             Copy-Item $LACaptureCSV $(Join-Path $ThisBackup '/RawCapture.csv') -Force;
 
@@ -169,12 +170,14 @@ try
             $OutputFile.Flush();
             $TestsFinished++;
 
-            Write-Host $('====== Finished 0x{0:X4}, got {1} ======' -F $InstrCode, $OutputLine);
+            Write-Host $('====== Finished 0x{0:X4} ({2:F2}%), got {1} ======' -F $InstrCode, $OutputLine, ($InstrCode / 65536.0 * 100));
             $LoopTimer.Stop();
             if ($AvgTimeTaken -EQ 0) { $AvgTimeTaken = $LoopTimer.ElapsedMilliseconds; }
             else { $AvgTimeTaken = ($AvgTimeTaken * 0.95) + (0.05 * $LoopTimer.ElapsedMilliseconds); }
-            [TimeSpan] $ETA = [TimeSpan]::FromSeconds((49152 - $TestsFinished) * $AvgTimeTaken / 1000);
-            Write-Host $('====== Took {0:F0}ms (avg {1:F0}ms), ETA: {2} ======' -F $LoopTimer.ElapsedMilliseconds, $AvgTimeTaken, $ETA.ToString('hh\h\:mm\m\:ss\s'));
+            [int] $InstructionsLeft = ((65536 - $START_INSTR) * 0.75 - $TestsFinished);
+            Write-Host "Left: $InstructionsLeft";
+            [TimeSpan] $ETA = [TimeSpan]::FromSeconds($InstructionsLeft * $AvgTimeTaken / 1000);
+            Write-Host $('====== Took {0:F0}ms (avg {1:F0}ms), ETA: {3}h:{2} ======' -F $LoopTimer.ElapsedMilliseconds, $AvgTimeTaken, $ETA.ToString('mm\m\:ss\s'), [Math]::Floor($ETA.TotalHours));
         }
         catch
         {

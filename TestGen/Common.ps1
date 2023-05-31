@@ -363,7 +363,7 @@ function ReplaceInstruction
 
         if ($DoCheck -AND ($Expected -NE $BinBytes[$BinLocation])) { throw $("Expected byte 0x{0:X2} at location 0x{1:X8}, but found 0x{2:X2} instead" -F $Expected, $BinLocation, $BinBytes[$BinLocation]); }
 
-        [byte] $NewByte = $New -SHR ($i * 8);
+        [byte] $NewByte = ($New -SHR ($i * 8)) -BAND 0xFF;
         $BinBytes[$BinLocation] = $NewByte;
     }
 

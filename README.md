@@ -28,6 +28,10 @@ You'll need:
 `.\Alignment.ps1 -CaptureMethod DSViewAHK|SigrokCLI|Manual|None [-Clean] [-NoProgram] [-RandomOrder]`  
 Tests how instructions react to alignment on 16b vs 32b boundaries, as well as how much runtime increases with more repeated identical instructions
 
+### CompressedOpcodes
+Brute forces all 16b instruction codes to see what explodes and what doesn't.  
+Recommended Capture: 20us, trig rising CH1
+
 ## Notes
 Example Sigrok capture command:
 ```powershell
