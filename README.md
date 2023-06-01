@@ -26,11 +26,20 @@ You'll need:
 ## Tests
 ### Alignment
 `.\Alignment.ps1 -CaptureMethod DSViewAHK|SigrokCLI|Manual|None [-Clean] [-NoProgram] [-RandomOrder]`  
-Tests how instructions react to alignment on 16b vs 32b boundaries, as well as how much runtime increases with more repeated identical instructions
+Tests how instructions react to alignment on 16b vs 32b boundaries, as well as how much runtime increases with more repeated identical instructions  
+Recommended Capture: 500us, trig rising CH1
 
 ### CompressedOpcodes
 Brute forces all 16b instruction codes to see what explodes and what doesn't.  
 Recommended Capture: 20us, trig rising CH1
+
+## Analysis Tools
+### RVInstructionListing
+Outputs 2 files:
+- `rv32c-instructions.csv`: This just has a list of all instruction codes in format `[deciaml instr],[instr name]`
+- `rv32c-instructions.txt`: The same data, but only the names, and 16 instructions per line instead.
+
+Instruction names are "X" if not a possible RV32C instruction (`Instr[1:0] == 2'b11`, as this means a 32b instruction), or "UNK" if they are not one of the instructions the program knows.
 
 ## Notes
 Example Sigrok capture command:

@@ -99,13 +99,12 @@ $script:INSTRUCTION_SET = @(
     [PSCustomObject]@{ Name = 'srl'; Format = 'srl  [D], [S], [T]'; TypeFlags = [InstructionType]::TwoRegisterIn }
     [PSCustomObject]@{ Name = 'sra'; Format = 'sra  [D], [S], [T]'; TypeFlags = [InstructionType]::TwoRegisterIn }
 
-    [PSCustomObject]@{ Name = 'c.mv'; Format = 'c.mv  [D], [S]'; TypeFlags = [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.add'; Format = 'c.add [D], [S]'; TypeFlags = [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.and'; Format = 'c.and [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.or'; Format = 'c.or  [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.xor'; Format = 'c.xor [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.sub'; Format = 'c.sub [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.nop'; Format = 'c.nop'; TypeFlags = [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '1000DDDDDSSSSS10'; Name = 'c.mv'; Format = 'c.mv  [D], [S]'; TypeFlags = [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '1001DDDDDSSSSS10'; Name = 'c.add'; Format = 'c.add [D], [S]'; TypeFlags = [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '100011DDD11SSS01'; Name = 'c.and'; Format = 'c.and [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '100011DDD10SSS01'; Name = 'c.or'; Format = 'c.or  [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '100011DDD01SSS01'; Name = 'c.xor'; Format = 'c.xor [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '100011DDD00SSS01'; Name = 'c.sub'; Format = 'c.sub [Dc], [Sc]'; TypeFlags = [InstructionType]::Compressed }
 
     [PSCustomObject]@{ Name = 'slti'; Format = 'slti  [D], [S], [I12]'; TypeFlags = [InstructionType]::Immediate }
     [PSCustomObject]@{ Name = 'sltiu'; Format = 'sltiu [D], [S], [I12]'; TypeFlags = [InstructionType]::Immediate }
@@ -119,24 +118,25 @@ $script:INSTRUCTION_SET = @(
     [PSCustomObject]@{ Name = 'lui'; Format = 'lui   [D], [I20]'; TypeFlags = [InstructionType]::Immediate }
     [PSCustomObject]@{ Name = 'auipc'; Format = 'auipc [D], [I20]'; TypeFlags = [InstructionType]::Immediate }
 
-    [PSCustomObject]@{ Name = 'c.li'; Format = 'c.li  [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.lui'; Format = 'c.lui [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.addi'; Format = 'c.addi [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.addi16sp'; Format = 'c.addi16sp sp, [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.addi4spn'; Format = 'c.addi4spn [Dc], sp, [I8]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.andi'; Format = 'c.andi [Dc], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.slli'; Format = 'c.slli [D], [I5]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.srli'; Format = 'c.srli [Dc], [I5]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.srai'; Format = 'c.srai [Dc], [I5]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '010IDDDDDIIIII01'; Name = 'c.li'; Format = 'c.li  [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '011IDDDDDIIIII01'; Name = 'c.lui'; Format = 'c.lui [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '000IDDDDDIIIII01'; Name = 'c.addi'; Format = 'c.addi [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '011I00010IIIII01'; Name = 'c.addi16sp'; Format = 'c.addi16sp sp, [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '000IIIIIIIIDDD00'; Name = 'c.addi4spn'; Format = 'c.addi4spn [Dc], sp, [I8]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '100I10DDDIIIII01'; Name = 'c.andi'; Format = 'c.andi [Dc], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '000IDDDDDIIIII10'; Name = 'c.slli'; Format = 'c.slli [D], [I5]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '100I00DDDIIIII01'; Name = 'c.srli'; Format = 'c.srli [Dc], [I5]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '100I01DDDIIIII01'; Name = 'c.srai'; Format = 'c.srai [Dc], [I5]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '000I00000IIIII01'; Name = 'c.nop'; Format = 'c.nop'; TypeFlags = [InstructionType]::Compressed }
 
     [PSCustomObject]@{ Name = 'jal'; Format = 'jal [D], [I20]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate }
     [PSCustomObject]@{ Name = 'jalr'; Format = 'jalr [D], [S], [I12]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate }
 
-    [PSCustomObject]@{ Name = 'c.j'; Format = 'c.j [I11]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.jal'; Format = 'c.jal [I11]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '101IIIIIIIIIII01'; Name = 'c.j'; Format = 'c.j [I11]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '001IIIIIIIIIII01'; Name = 'c.jal'; Format = 'c.jal [I11]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
 
-    [PSCustomObject]@{ Name = 'c.jr'; Format = 'c.jr   [D]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.jalr'; Format = 'c.jalr [D]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '1000DDDDD0000010'; Name = 'c.jr'; Format = 'c.jr   [D]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '1001DDDDD0000010'; Name = 'c.jalr'; Format = 'c.jalr [D]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Compressed }
 
     [PSCustomObject]@{ Name = 'beq'; Format = 'beq  [S], [T], [I12]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::TwoRegisterIn }
     [PSCustomObject]@{ Name = 'bne'; Format = 'bne  [S], [T], [I12]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::TwoRegisterIn }
@@ -145,8 +145,8 @@ $script:INSTRUCTION_SET = @(
     [PSCustomObject]@{ Name = 'bge'; Format = 'bge  [S], [T], [I12]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::TwoRegisterIn }
     [PSCustomObject]@{ Name = 'bgeu'; Format = 'bgeu [S], [T], [I12]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::TwoRegisterIn }
 
-    [PSCustomObject]@{ Name = 'c.beqz'; Format = 'c.beqz [Sc], [I8]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.bnez'; Format = 'c.bnez [Sc], [I8]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '110IIISSSIIIII01'; Name = 'c.beqz'; Format = 'c.beqz [Sc], [I8]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '111IIISSSIIIII01'; Name = 'c.bnez'; Format = 'c.bnez [Sc], [I8]'; TypeFlags = [InstructionType]::Branch + [InstructionType]::Immediate + [InstructionType]::Compressed }
 
     [PSCustomObject]@{ Name = 'lw'; Format = 'lw  [D], [I12]([S])'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory }
     [PSCustomObject]@{ Name = 'lh'; Format = 'lh  [D], [I12]([S])'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory }
@@ -157,10 +157,10 @@ $script:INSTRUCTION_SET = @(
     [PSCustomObject]@{ Name = 'sh'; Format = 'sh  [S], [I12]([D])'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory }
     [PSCustomObject]@{ Name = 'sb'; Format = 'sb  [S], [I12]([D])'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory }
 
-    [PSCustomObject]@{ Name = 'c.lwsp'; Format = 'c.lwsp  [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.lw'; Format = 'c.lw    [Dc], [I6](Sc)'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.swsp'; Format = 'c.swsp  [S], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
-    [PSCustomObject]@{ Name = 'c.sw'; Format = 'c.sw    [Sc], [I6](Dc)'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '010IDDDDDIIIII10'; Name = 'c.lwsp'; Format = 'c.lwsp  [D], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '010IIISSSIIDDD00'; Name = 'c.lw'; Format = 'c.lw    [Dc], [I6](Sc)'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '110IIIIIISSSSS10'; Name = 'c.swsp'; Format = 'c.swsp  [S], [I6]'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
+    [PSCustomObject]@{ BitPattern = '110IIIDDDIISSS00'; Name = 'c.sw'; Format = 'c.sw    [Sc], [I6](Dc)'; TypeFlags = [InstructionType]::Immediate + [InstructionType]::Memory + [InstructionType]::Compressed }
 );
 
 function GetInstructions
