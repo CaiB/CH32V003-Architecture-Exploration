@@ -536,7 +536,7 @@ function ParseProcessedFile([string] $fileName)
         [StreamReader] $Reader = [StreamReader]::new($fileName);
         $OutputData = @();
         [string] $Line = $Reader.ReadLine();
-        while(!([string]::IsNullOrEmpty($Line)))
+        while(!$Reader.EndOfStream)
         {
             [int] $CommaIndex = $Line.IndexOf([char]',');
             [int] $CommaIndex2 = $Line.IndexOf([char]',', $CommaIndex + 1);
@@ -544,6 +544,8 @@ function ParseProcessedFile([string] $fileName)
             [int] $CycleCount = $Line.Substring($CommaIndex + 1, ($CommaIndex2 - $CommaIndex - 1));
             [int] $Bit = $Line.Substring($CommaIndex2 + 1);
             $OutputData += [PSCustomObject]@{ Nanoseconds = $Nanoseconds; CycleCount = $CycleCount; Bit = $Bit };
+
+            $Line = $Reader.ReadLine();
         }
         return $OutputData;
     }
