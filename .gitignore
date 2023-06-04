@@ -7,3 +7,5 @@ Captures/**
 TestGen/Generated/**
 TestGen/**.bin
 Data/CompressedOpcodes_All/**
+**/bin/**
+**/obj/**
