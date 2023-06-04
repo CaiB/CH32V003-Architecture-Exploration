@@ -85,10 +85,13 @@ if (!(Test-Path $BackupFolder)) { New-Item -ItemType Directory $BackupFolder | O
 
 try
 {
-    [UInt16] $START_INSTR = 0x0C9C;
+    [UInt16] $START_INSTR = 0xFF0E;
     for ($InstrCode = $START_INSTR; $InstrCode -LT 0xFFFF; $InstrCode++)
     {
         if (($InstrCode -BAND 0x0003) -EQ 0x0003) { continue; } # This isn't a valid compressed instruction
+        if (($InstrCode -BAND 0xE003) -EQ 0xA002) { continue; } # These c.fsdsp instructions kill it
+        if (($InstrCode -BAND 0xE003) -EQ 0xA000) { continue; } # These c.fsd instructions also kill it
+        if (($InstrCode -BAND 0xE383) -EQ 0xC100) { continue; } # c.sw loading into addr in x10 also kill it
         try
         {
             $LoopTimer.Restart();
@@ -175,7 +178,7 @@ try
             if ($AvgTimeTaken -EQ 0) { $AvgTimeTaken = $LoopTimer.ElapsedMilliseconds; }
             else { $AvgTimeTaken = ($AvgTimeTaken * 0.95) + (0.05 * $LoopTimer.ElapsedMilliseconds); }
             [int] $InstructionsLeft = ((65536 - $START_INSTR) * 0.75 - $TestsFinished);
-            Write-Host "Left: $InstructionsLeft";
+            #Write-Host "Left: $InstructionsLeft";
             [TimeSpan] $ETA = [TimeSpan]::FromSeconds($InstructionsLeft * $AvgTimeTaken / 1000);
             Write-Host $('====== Took {0:F0}ms (avg {1:F0}ms), ETA: {3}h:{2} ======' -F $LoopTimer.ElapsedMilliseconds, $AvgTimeTaken, $ETA.ToString('mm\m\:ss\s'), [Math]::Floor($ETA.TotalHours));
         }
@@ -184,6 +187,7 @@ try
             Write-Error $("Failed to process instruction 0x{0:X4}`n{1}" -F $InstrCode, $_);
         }
     }
+    Write-Host 'COMPLETE!' -ForegroundColor Green;
 }
 finally
 {
