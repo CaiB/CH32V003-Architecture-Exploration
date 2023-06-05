@@ -32,6 +32,13 @@ Recommended Capture: 500us, trig rising CH1
 ### CompressedOpcodes
 Brute forces all 16b instruction codes to see what explodes and what doesn't.  
 Recommended Capture: 20us, trig rising CH1
+In `.\Data\CompressedOpcodes_ALL\XX\YY\` (where XX is hex upper byte, YY is hex lower byte), 2 files are saved:
+- `RawCapture.csv`: The capture as it came out of the logic analyzer
+- `ProcessedCapture.csv`: A preprocessed version of the logic analyzer data, where data is merged such that CH1 bit state transitions are listed by cycle counts and bit state to simplify further processing.
+At `.\Data\CompressedOpcodes.csv` a line-per-instruction summary is created, along with a header that shows the start time of that script run. Gets appended to by every run of the script to allow easy resuming after failure or pause. See CompressedOpcodesReprocess below.
+
+### CompressedOpcodesReprocess
+Reprocesses all of the logic analyzer captures into the one-line summary like in `.\Data\CompressedOpcodes.csv`. Because that one is made as the script runs, it contains multiple headers with the run times and potentially duplicate entries if any instructions were run more than once. The Reprocess script just re-reads the latest set of instruction captures and creates a clean full CSV.
 
 ## Analysis Tools
 ### RVInstructionListing
