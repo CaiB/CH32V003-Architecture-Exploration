@@ -455,7 +455,7 @@ function StartAHKScript
     if ($AHKProc.ExitCode -NE 0) { throw "AHK returned exit code $($AHKProc.ExitCode)."; }
 }
 
-function ParseCapture([string] $csvFile, [string] $outputPath)
+function ParseCapture([string] $csvFile, [string] $outputPath, [switch] $NoOutFile)
 {
     $OutputData = @();
     # Write-Host "Saving intermediate cycle-counted capture to $outputPath";
@@ -463,7 +463,7 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
     try
     {
         [StreamReader] $InputFile = [StreamReader]::new($csvFile);
-        [StreamWriter] $OutputFile = [StreamWriter]::new($outputPath);
+        if(!$NoOutFile) { [StreamWriter] $OutputFile = [StreamWriter]::new($outputPath); }
 
         [int] $LastClock = 0;
         [int] $LastClockedData = 0;
@@ -488,7 +488,7 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
                 [float] $CyclesSinceLastClock = ($Nanoseconds - $PrevNanoseconds) * 48000000;
                 if ($CyclesSinceLastClock -GT 3)
                 {
-                    $OutputFile.WriteLine("$NanosecondsStr,$CyclesSinceLastClock,2")
+                    if(!$NoOutFile) { $OutputFile.WriteLine("$NanosecondsStr,$CyclesSinceLastClock,2"); }
                     $OutputData += [PSCustomObject]@{ Nanoseconds = $NanosecondsStr; CycleCount = $CyclesSinceLastClock; Bit = -1 };
                     Write-Host "Found $CyclesSinceLastClock missing clock cycles!";
                 }
@@ -499,7 +499,7 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
             {
                 if (($LastRawData -BXOR $LastClockedData) -NE 0) # Data transition (sample right before the clock rising edge)
                 {
-                    $OutputFile.WriteLine("$NanosecondsStr,$TimeSinceLastDataTrans,$LastClockedData");
+                    if(!$NoOutFile) { $OutputFile.WriteLine("$NanosecondsStr,$TimeSinceLastDataTrans,$LastClockedData"); }
                     $OutputData += [PSCustomObject]@{ Nanoseconds = $NanosecondsStr; CycleCount = $TimeSinceLastDataTrans; Bit = $LastClockedData };
                     $TimeSinceLastDataTrans = 1;
                 }
@@ -517,7 +517,7 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
         [int] $CommaIndex = $PrevLine.IndexOf([char]',');
         if ($CommaIndex -LE 0) { Write-Error 'Couldn''t parse last line'; }
         [string] $NanosecondsStr = $PrevLine.Substring(0, $CommaIndex);
-        $OutputFile.WriteLine("$NanosecondsStr,$TimeSinceLastDataTrans,$LastClockedData")
+        if(!$NoOutFile) { $OutputFile.WriteLine("$NanosecondsStr,$TimeSinceLastDataTrans,$LastClockedData"); }
         $OutputData += [PSCustomObject]@{ Nanoseconds = $NanosecondsStr; CycleCount = $TimeSinceLastDataTrans; Bit = $LastClockedData };
         
         return $OutputData;
@@ -525,10 +525,12 @@ function ParseCapture([string] $csvFile, [string] $outputPath)
     finally
     {
         if($InputFile) { $InputFile.Close(); }
-        if($OutputFile) { $OutputFile.Close(); }
+        if(!$NoOutFile -AND $OutputFile) { $OutputFile.Close(); }
     }
 }
 
+
+# TODO: Figure out why this is broken right now!
 function ParseProcessedFile([string] $fileName)
 {
     try
@@ -540,9 +542,10 @@ function ParseProcessedFile([string] $fileName)
         {
             [int] $CommaIndex = $Line.IndexOf([char]',');
             [int] $CommaIndex2 = $Line.IndexOf([char]',', $CommaIndex + 1);
-            [string] $Nanoseconds = $Line.Substring($CommaIndex);
+            [string] $Nanoseconds = $Line.Substring(0, $CommaIndex);
             [int] $CycleCount = $Line.Substring($CommaIndex + 1, ($CommaIndex2 - $CommaIndex - 1));
             [int] $Bit = $Line.Substring($CommaIndex2 + 1);
+            if ($Bit -EQ 2) { $Bit = -1; }
             $OutputData += [PSCustomObject]@{ Nanoseconds = $Nanoseconds; CycleCount = $CycleCount; Bit = $Bit };
 
             $Line = $Reader.ReadLine();
