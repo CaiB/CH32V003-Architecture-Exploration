@@ -37,9 +37,6 @@ In `.\Data\CompressedOpcodes_ALL\XX\YY\` (where XX is hex upper byte, YY is hex 
 - `ProcessedCapture.csv`: A preprocessed version of the logic analyzer data, where data is merged such that CH1 bit state transitions are listed by cycle counts and bit state to simplify further processing.
 At `.\Data\CompressedOpcodes.csv` a line-per-instruction summary is created, along with a header that shows the start time of that script run. Gets appended to by every run of the script to allow easy resuming after failure or pause. See CompressedOpcodesReprocess below.
 
-### CompressedOpcodesReprocess
-Reprocesses all of the logic analyzer captures into the one-line summary like in `.\Data\CompressedOpcodes.csv`. Because that one is made as the script runs, it contains multiple headers with the run times and potentially duplicate entries if any instructions were run more than once. The Reprocess script just re-reads the latest set of instruction captures and creates a clean full CSV.
-
 ## Analysis Tools
 ### RVInstructionListing
 Outputs 2 files:
@@ -47,6 +44,10 @@ Outputs 2 files:
 - `rv32c-instructions.txt`: The same data, but only the names, and 16 instructions per line instead.
 
 Instruction names are "X" if not a possible RV32C instruction (`Instr[1:0] == 2'b11`, as this means a 32b instruction), or "UNK" if they are not one of the instructions the program knows.
+
+
+### CompressedOpcodesReprocess
+Reprocesses all of the logic analyzer captures into the one-line summary like in `.\Data\CompressedOpcodes.csv`. Because that one is made as the script runs, it contains multiple headers with the run times and potentially duplicate entries if any instructions were run more than once. The Reprocess script just re-reads the latest set of instruction captures and creates a clean full CSV.
 
 ## Notes
 Example Sigrok capture command:
