@@ -10,7 +10,7 @@ param (
 )
 
 $TEST_NAME = 'CompressedOpcodesReprocess';
-. "$PSScriptRoot\Common.ps1"
+. "$PSScriptRoot\..\TestGen\Common.ps1"
 
 [UInt16] $START_INSTR = 0x0000;
 [UInt16] $END_INSTR = 0xFFFF;
