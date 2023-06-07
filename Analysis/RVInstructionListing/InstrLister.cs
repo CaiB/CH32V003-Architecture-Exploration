@@ -34,6 +34,14 @@ internal class InstrLister
         { "c.lw",       "010IIISSSIIDDD00" },
         { "c.swsp",     "110IIIIIISSSSS10" },
         { "c.sw",       "110IIIDDDIISSS00" },
+        { "xw.c.lbu",   "001IIISSSIIDDD00" },
+        { "xw.c.lhu",   "001IIISSSIIDDD10" },
+        { "xw.c.sb",    "101IIIDDDIISSS00" },
+        { "xw.c.sh",    "101IIIDDDIISSS10" },
+        { "xw.c.lbusp", "10000IIII00DDD00" },
+        { "xw.c.lhusp", "10000IIII01DDD00" },
+        { "xw.c.sbsp",  "10000IIII10SSS00" },
+        { "xw.c.shsp",  "10000IIII11SSS00" },
     };
 
     static int CountSetBits(uint num)
