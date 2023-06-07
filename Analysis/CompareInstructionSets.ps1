@@ -101,10 +101,11 @@ $OutputFile.Close();
 [int] $LegendRowIndex = 3;
 function AddConditionalExpr # Color format is 0x00BBGGRR
 {
-    param ($Sheet, $CellRange, $Expression, $Color, $Description, [switch]$PassThru);
+    param ($Sheet, $CellRange, $Expression, $Color, $Example, $Description, [switch]$PassThru);
     $NewFormatCondition = $CellRange.FormatConditions.Add(2, 0, $Expression);
     $NewFormatCondition.Interior.Color = $Color;
-    $Sheet.Cells.Item($LegendRowIndex, $COLUMNS + 4).Interior.Color = $Color;
+    #$Sheet.Cells.Item($LegendRowIndex, $COLUMNS + 4).Interior.Color = $Color;
+    $Sheet.Cells.Item($LegendRowIndex, $COLUMNS + 4) = $Example;
     $Sheet.Cells.Item($LegendRowIndex, $COLUMNS + 5) = $Description;
     $script:LegendRowIndex++;
     if($PassThru) { return $NewFormatCondition; }
@@ -121,7 +122,7 @@ $Sheet.Rows.Item(1).Font.Bold = $true;
 $Sheet.Columns.Item(1).Font.Bold = $true;
 
 $TopLeft = $Sheet.Cells.Item(2, 2); # Excel is one-indexed
-$BottomRight = $Sheet.Cells.Item($ROWS + 2, $COLUMNS + 2);
+$BottomRight = $Sheet.Cells.Item($ROWS + 2, $COLUMNS + 4);
 $DataRange = $Sheet.Range($TopLeft, $BottomRight);
 
 [void] $($Sheet.Range($Sheet.Cells.Item(1, 1), $BottomRight).Columns.AutoFit());
@@ -131,28 +132,28 @@ $AAAWHYEXCEL = $DataRange.FormatConditions.Add(2, 0, '=(B2="X")');
 $AAAWHYEXCEL.Interior.Color = 0x7F7F7F;
 $AAAWHYEXCEL.Font.ColorIndex = 16;
 
-AddConditionalExpr $Sheet $DataRange '=(B2="Unresp")' 0x55BBDD 'This instruction isn''t expected to exist, and running it timed out the pin';
-AddConditionalExpr $Sheet $DataRange '=(B2="NoTest")' 0x6688DD 'This instruction isn''t expected to exist, and was skipped in testing';
-AddConditionalExpr $Sheet $DataRange '=(Left(B2,2)="c.")' 0xFFFFFF 'This instruction was expected to exist, but was skipped in testing';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="Unresp")' -Color 0x55BBDD -Example 'Unresp' -Description 'This instruction isn''t expected to exist, and running it timed out the pin';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="NoTest")' -Color 0x6688DD -Example 'NoTest' -Description 'This instruction isn''t expected to exist, and was skipped in testing';
+AddConditionalExpr $Sheet $DataRange -Expression '=(Left(B2,2)="c.")' -Color 0xFFFFFF -Example 'c.xxx' -Description 'This instruction was expected to exist, but was skipped in testing';
 
-AddConditionalExpr $Sheet $DataRange '=(B2="Ex 1")' 0x336633 'This instruction was expected to exist, and took 1 cycle to execute';
-AddConditionalExpr $Sheet $DataRange '=(B2="Ex 2")' 0x448844 'This instruction was expected to exist, and took 2 cycles to execute';
-AddConditionalExpr $Sheet $DataRange '=(B2="Ex 3")' 0x77AA55 'This instruction was expected to exist, and took 3 cycles to execute';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="Ex 1")' -Color 0x336633 -Example 'Ex 1' -Description 'This instruction was expected to exist, and took 1 cycle to execute';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="Ex 2")' -Color 0x448844 -Example 'Ex 2' -Description 'This instruction was expected to exist, and took 2 cycles to execute';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="Ex 3")' -Color 0x77AA55 -Example 'Ex 3' -Description 'This instruction was expected to exist, and took 3 cycles to execute';
 
-AddConditionalExpr $Sheet $DataRange '=(AND(LEFT(B2, 3)="Ex ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) > 3, NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) < 100))' 0xBBDD88 'This instruction was expected to exist, but took more than 3 cycles to execute (likely random branches)';
-AddConditionalExpr $Sheet $DataRange '=(AND(LEFT(B2, 3)="Ex ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) > 99, NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) < 500))' 0x662211 'This instruction was expected to exist, but executing it caused the chip to completey stop responding until power cycled';
-AddConditionalExpr $Sheet $DataRange '=(AND(LEFT(B2, 3)="Ex ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) > 499))' 0xFF9988 'This instruction was expected to exist, but did not complete, or overwrote a critical register';
+AddConditionalExpr $Sheet $DataRange -Expression '=(AND(LEFT(B2, 3)="Ex ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) > 3, NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) < 100))' -Color 0xBBDD88 -Example 'Ex 8' -Description 'This instruction was expected to exist, but took more than 3 cycles to execute (likely random branches)';
+AddConditionalExpr $Sheet $DataRange -Expression '=(AND(LEFT(B2, 3)="Ex ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) > 99, NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) < 500))' -Color 0x662211 -Example 'Ex 250' -Description 'This instruction was expected to exist, but executing it caused the chip to completey stop responding until power cycled';
+AddConditionalExpr $Sheet $DataRange -Expression '=(AND(LEFT(B2, 3)="Ex ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 3)) > 499))' -Color 0xFF9988 -Example 'Ex 900' -Description 'This instruction was expected to exist, but did not complete, or overwrote a critical register';
 
-AddConditionalExpr $Sheet $DataRange '=(B2="New 1")' 0xFF55AA 'This instruction is new, and took 1 cycle to execute';
-AddConditionalExpr $Sheet $DataRange '=(B2="New 2")' 0xDD66BB 'This instruction is new, and took 2 cycles to execute';
-AddConditionalExpr $Sheet $DataRange '=(B2="New 3")' 0xDD66CC 'This instruction is new, and took 3 cycles to execute';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="New 1")' -Color 0xFF55AA -Example 'New 1' -Description 'This instruction is new, and took 1 cycle to execute';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="New 2")' -Color 0xDD66BB -Example 'New 2' -Description 'This instruction is new, and took 2 cycles to execute';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="New 3")' -Color 0xDD66CC -Example 'New 3' -Description 'This instruction is new, and took 3 cycles to execute';
 
-AddConditionalExpr $Sheet $DataRange '=(AND(LEFT(B2, 4)="New ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) > 3, NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) < 100))' 0xDD55EE 'This instruction is new, but took more than 3 cycles to execute (likely random branches)';
-AddConditionalExpr $Sheet $DataRange '=(AND(LEFT(B2, 4)="New ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) > 99, NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) < 500))' 0xBB55FF 'This instruction is new, but executing it caused the chip to completey stop responding until power cycled';
+AddConditionalExpr $Sheet $DataRange -Expression '=(AND(LEFT(B2, 4)="New ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) > 3, NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) < 100))' -Color 0xDD55EE -Example 'New 8' -Description 'This instruction is new, but took more than 3 cycles to execute (likely random branches)';
+AddConditionalExpr $Sheet $DataRange -Expression '=(AND(LEFT(B2, 4)="New ", NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) > 99, NUMBERVALUE(RIGHT(B2, LEN(B2) - 4)) < 500))' -Color 0xBB55FF -Example 'New 200' -Description 'This instruction is new, but executing it caused the chip to completey stop responding until power cycled';
 
-AddConditionalExpr $Sheet $DataRange '=(B2="RST Shrt")' 0x2233DD 'This instruction caused the CPU to reset, missing about 6.5 cycles';
-AddConditionalExpr $Sheet $DataRange '=(B2="RST Med")' 0x2222AA 'This instruction caused the CPU to reset, missing about 9.5 cycles';
-AddConditionalExpr $Sheet $DataRange '=(B2="RST Long")' 0x111177 'This instruction caused the CPU to reset, missing about 95 cycles';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="RST Shrt")' -Example 'RST Shrt' -Color 0x2233DD -Description 'This instruction caused the CPU to reset, missing about 6.5 cycles';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="RST Med")' -Example 'RST Med' -Color 0x2222AA -Description 'This instruction caused the CPU to reset, missing about 9.5 cycles';
+AddConditionalExpr $Sheet $DataRange -Expression '=(B2="RST Long")' -Example 'RST Long' -Color 0x111177 -Description 'This instruction caused the CPU to reset, missing about 95 cycles';
 
 [void] $($TopLeft.Select());
 $Excel.ActiveWindow.FreezePanes = $true;
