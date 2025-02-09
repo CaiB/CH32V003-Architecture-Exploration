@@ -1,7 +1,7 @@
 #define SYSTEM_CORE_CLOCK 48000000
-#define SYSTICK_USE_HCLK
+#define FUNCONF_SYSTICK_USE_HCLK 1
 
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 #include "Firmware.h"
 
 // PINS USED:
@@ -14,9 +14,7 @@ void RunTests();
 
 int main()
 {
-    SystemInit48HSI();
-	SetupDebugPrintf();
-	SETUP_SYSTICK_HCLK
+    SystemInit();
     
 	// Enable GPIOs, DMA and TIMERs
 	RCC->AHBPCENR = RCC_AHBPeriph_SRAM | RCC_AHBPeriph_DMA1;

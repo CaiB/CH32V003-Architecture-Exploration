@@ -1,5 +1,4 @@
-#define ASSEMBLER
-#include "ch32v003fun.h"
+#include "ch32fun.h"
 #include "Firmware.h"
 #define BSHR_OFFSET 16
 #define INDR_OFFSET 8

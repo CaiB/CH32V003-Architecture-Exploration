@@ -1,3 +1,5 @@
+using namespace System.IO;
+
 ### Action autocomplete
 # Since this script can be sourced multiple times, only try to add the base actions once per context.
 if(!$script:BASE_ACTIONS_ADDED)
@@ -41,7 +43,7 @@ if ($script:ACTIONS_ENUM_ONLY) { return; }
 
 ### Globals
 if($null -EQ $script:PREFIX) { $script:PREFIX = 'riscv64-unknown-elf'; }
-if($null -EQ $script:CH32V003FUN) { $script:CH32V003FUN = '../../ch32v003fun'; }
+if($null -EQ $script:CH32FUN) { $script:CH32FUN = '../../ch32fun'; }
 if($null -EQ $script:MINICHLINK) { $script:MINICHLINK = '../../minichlink'; }
 $script:CFLAGS += @(
     '-g', '-Os', '-flto', '-ffunction-sections',
@@ -49,13 +51,13 @@ $script:CFLAGS += @(
 	'-march=rv32ec',
 	'-mabi=ilp32e',
 	'-I/usr/include/newlib',
-	"-I$CH32V003FUN/../extralibs",
-	"-I$CH32V003FUN",
+	"-I$CH32FUN/../extralibs",
+	"-I$CH32FUN",
 	'-nostdlib',
 	'-I.', '-Wall'
 );
-$script:LDFLAGS += @('-T', "$CH32V003FUN/ch32v003fun.ld", '-Wl,--gc-sections', "-L$CH32V003FUN/../misc", '-lgcc');
-$script:SYSTEM_C = "$CH32V003FUN/ch32v003fun.c";
+$script:LDFLAGS += @('-T', 'ch32fun.ld', '-Wl,--gc-sections', "-L$CH32FUN/../misc", '-lgcc');
+$script:SYSTEM_C = "$CH32FUN/ch32fun.c";
 $script:TARGET_EXT = 'c';
 
 ### Helper Functions
@@ -78,7 +80,7 @@ function ExecuteActions($ActionsToRun)
 function ClearVars
 {
     $script:PREFIX = $null;
-    $script:CH32V003FUN = $null;
+    $script:CH32FUN = $null;
     $script:MINICHLINK = $null;
     $script:CFLAGS = $null;
     $script:LDFLAGS = $null;
