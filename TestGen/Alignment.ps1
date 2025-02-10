@@ -8,7 +8,8 @@ param (
     [string] $CaptureMethod, # How should data be captured from the logic analyzer?
     [switch] $Clean, # Removes all intermediate files before starting
     [switch] $NoProgram, # Does everything except compiling or programming the device
-    [switch] $RandomOrder # Shuffles the order of the tests to minimize the impact of boundary conditions
+    [switch] $RandomOrder, # Shuffles the order of the tests to minimize the impact of boundary conditions
+    [switch] $MisalignFirst # Whether to execute misaligned,aligned (true) or Aligned,Misaligned (false)
 )
 
 # Cleanup and basics
@@ -59,21 +60,21 @@ $TestInformation = $Instructions | ForEach-Object {
 # Generate the actual test instructions for each
 [byte] $ID = 0;
 foreach($TestEntry in $TestInformation)
-{
-    $Output += GenerateTestStart $ID -Description $Instr.Name; # Test ID signal
-    $Output += @(
+{   
+    $AlignedTest = @(
         '.balign 4',
         'c.nop',
         'PIN_ON_A'
     );
     for ($i = 0; $i -LT $TestEntry.Count; $i++) # Aligned
     {
-        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction `
+        $AlignedTest += (FormatInstruction -InstrObj $TestEntry.Instruction `
             -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate `
             -Name "$($TestEntry.Name) Test Aligned I$i ($(if($i % 2 -EQ 0) { 'A' } else { 'Misa' })ligned if comp)");
     }
-    $Output += @(
-        'PIN_OFF_A',
+    $AlignedTest += 'PIN_OFF_A';
+
+    $MisalignedTest = @(
         '.balign 4',
         'c.nop',
         'c.nop',
@@ -81,11 +82,23 @@ foreach($TestEntry in $TestInformation)
     );
     for ($i = 0; $i -LT $TestEntry.Count; $i++) # Misaligned
     {
-        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction `
+        $MisalignedTest += (FormatInstruction -InstrObj $TestEntry.Instruction `
             -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate `
             -Name "$($TestEntry.Name) Test Misligned I$i ($(if($i % 2 -EQ 0) { 'Misa' } else { 'A' })ligned if comp)");
     }
-    $Output += 'PIN_OFF_A'
+    $MisalignedTest += 'PIN_OFF_A'
+
+    $Output += GenerateTestStart $ID -Description $Instr.Name; # Test ID signal
+    if ($MisalignFirst)
+    {
+        $Output += $MisalignedTest;
+        $Output += $AlignedTest;
+    }
+    else
+    {
+        $Output += $AlignedTest;
+        $Output += $MisalignedTest;
+    }
     $Output += GenerateTestEnd;
 
     $ID++;
@@ -171,6 +184,7 @@ foreach($TestEntry in $TestInformation)
         ($TestData[3].Bit -NE 1) -OR
         ($TestData[4].Bit -NE 0)) { Write-Host "Got bad data pattern for test '$($TestEntry.Name)': $TestData"; continue; }
     
-    $OutputFile.WriteLine("$($TestEntry.Name),$($TestData[1].CycleCount - 2),$($TestData[3].CycleCount - 2)");
+    if ($MisalignFirst) { $OutputFile.WriteLine("$($TestEntry.Name),$($TestData[3].CycleCount - 2),$($TestData[1].CycleCount - 2)"); }
+    else { $OutputFile.WriteLine("$($TestEntry.Name),$($TestData[1].CycleCount - 2),$($TestData[3].CycleCount - 2)"); }
 }
 $OutputFile.Close();
