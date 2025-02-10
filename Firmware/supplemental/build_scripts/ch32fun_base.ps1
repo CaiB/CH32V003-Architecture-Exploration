@@ -41,6 +41,7 @@ function CreateActionParam
 # If we're just getting autocomplete options, don't run any further to save time.
 if ($script:ACTIONS_ENUM_ONLY) { return; }
 
+$FirmwareDir = Join-Path $PSScriptRoot '../..';
 ### Globals
 if($null -EQ $script:PREFIX) { $script:PREFIX = 'riscv64-unknown-elf'; }
 if($null -EQ $script:CH32FUN) { $script:CH32FUN = '../../ch32fun'; }
@@ -53,10 +54,11 @@ $script:CFLAGS += @(
 	'-I/usr/include/newlib',
 	"-I$CH32FUN/../extralibs",
 	"-I$CH32FUN",
+    "-I$FirmwareDir"
 	'-nostdlib',
 	'-I.', '-Wall'
 );
-$script:LDFLAGS += @('-T', 'ch32fun.ld', '-Wl,--gc-sections', "-L$CH32FUN/../misc", '-lgcc');
+$script:LDFLAGS += @('-T', $(Join-Path $FirmwareDir 'ch32fun.ld'), '-Wl,--gc-sections', "-L$CH32FUN/../misc", '-lgcc');
 $script:SYSTEM_C = "$CH32FUN/ch32fun.c";
 $script:TARGET_EXT = 'c';
 
@@ -136,6 +138,7 @@ function CheckStep([string] $StepName, $RequiredInputs, $OptionalInputs, $Output
 # Define procedures
 function DoElf
 {
+    $DEBUG = $false;
     $TargetWithExt = "$script:TARGET.$script:TARGET_EXT";
     if ($script:OVERRIDE_C) { $TargetWithExt = $script:OVERRIDE_C; }
     $RequiredFiles = @($script:SYSTEM_C, $TargetWithExt, $script:ADDITIONAL_C_FILES);
@@ -145,6 +148,7 @@ function DoElf
     if (!$DoStep) { return; }
 
     [string[]] $ProcArgs = @('-o', "$script:TARGET.elf", $RequiredFiles, $script:CFLAGS, $script:LDFLAGS);
+    if($DEBUG) { "Calling compiler '$script:PREFIX-gcc' with arguments: $ProcArgs"; }
     $CompilerProc = Start-Process -NoNewWindow -Wait "$script:PREFIX-gcc" -ArgumentList $ProcArgs -PassThru;
     if ($CompilerProc.ExitCode -NE 0) { throw "The compiler returned exit code $($CompilerProc.ExitCode)."; }
 }

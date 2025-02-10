@@ -47,10 +47,13 @@ if ($RandomOrder) { $Instructions = $Instructions | Sort-Object {Get-Random}; }
 
 # Choose pattern lengths, each instruction will be configured in every option (note the flash is small)
 $TestInformation = $Instructions | ForEach-Object {
-    #[PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x3"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = 16; Count = 3 },
-    [PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x5"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = 16; Count = 5 },
-    #[PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x7"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = 16; Count = 7 },
-    [PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x9"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = 16; Count = 9 }
+    $Imm = 16;
+    if ($_.Name -EQ 'lui') { $Imm = 775; } # If the immediate is too small for lui, it will silently be converted to c.lui
+
+    #[PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x3"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = $Imm; Count = 3 },
+    [PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x5"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = $Imm; Count = 5 },
+    #[PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x7"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = $Imm; Count = 7 },
+    [PSCustomObject]@{ Instruction = $_; Name = "$($_.Name) x9"; Dest = 'a3'; Src1 = 'a1'; Src2 = 'a2'; Immediate = $Imm; Count = 9 }
 };
 
 # Generate the actual test instructions for each
@@ -65,7 +68,9 @@ foreach($TestEntry in $TestInformation)
     );
     for ($i = 0; $i -LT $TestEntry.Count; $i++) # Aligned
     {
-        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate -Name "$($TestEntry.Name) Test Aligned I$i ($(if($i % 2 -EQ 0) { 'A' } else { 'Misa' })ligned)");
+        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction `
+            -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate `
+            -Name "$($TestEntry.Name) Test Aligned I$i ($(if($i % 2 -EQ 0) { 'A' } else { 'Misa' })ligned if comp)");
     }
     $Output += @(
         'PIN_OFF_A',
@@ -76,7 +81,9 @@ foreach($TestEntry in $TestInformation)
     );
     for ($i = 0; $i -LT $TestEntry.Count; $i++) # Misaligned
     {
-        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate -Name "$($TestEntry.Name) Test Misligned I$i ($(if($i % 2 -EQ 0) { 'Misa' } else { 'A' })ligned)");
+        $Output += (FormatInstruction -InstrObj $TestEntry.Instruction `
+            -Dest $TestEntry.Dest -Src1 $TestEntry.Src1 -Src2 $TestEntry.Src2 -Immediate $TestEntry.Immediate `
+            -Name "$($TestEntry.Name) Test Misligned I$i ($(if($i % 2 -EQ 0) { 'Misa' } else { 'A' })ligned if comp)");
     }
     $Output += 'PIN_OFF_A'
     $Output += GenerateTestEnd;

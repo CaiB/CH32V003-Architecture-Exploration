@@ -8,8 +8,7 @@ function Flatten($Nest) { ,@($Nest | % { if($null -NE $_) {$_} }); }
 function GenerateSetup
 {
     return @(
-        '#define ASSEMBLER',
-        '#include "ch32v003fun.h"',
+        '#include "ch32fun.h"',
         '#include "../Firmware/Firmware.h"',
         '#define BSHR_OFFSET 16',
         '#define INDR_OFFSET 8',
@@ -202,7 +201,11 @@ function FormatInstruction
         if ($Instruction.Count -EQ 0) { throw "Instruction '$Instr' could not be found."; }
         if ($Instruction.Count -GT 1) { throw "Instruction '$Instr' has more than one definition."; }
     }
-    else { $Instruction = $InstrObj; }
+    else
+    {
+        $Instruction = $InstrObj;
+        $Instr = $InstrObj.Name;
+    }
 
     [string] $Line = "$($Instruction.Format) // #TESTINSTR#$Name";
     if ($Line -match '\[Dc\]')
@@ -254,13 +257,13 @@ function BuildTest([string] $TestName, [switch] $NoFlash)
 {
     $script:ACTIONS_ENUM_ONLY = $false;
     $script:TARGET = $TestName;
-    $script:CH32V003FUN = (Join-Path $PSScriptRoot '../Firmware/ch32v003fun/ch32v003fun');
+    $script:CH32FUN = (Join-Path $PSScriptRoot '../Firmware/ch32v003fun/ch32fun');
     $script:MINICHLINK = (Join-Path $PSScriptRoot '../Firmware/ch32v003fun/minichlink');
     $script:ADDITIONAL_C_FILES += @($(Join-Path $PSScriptRoot "/Generated/$TestName.S"));
     $script:OVERRIDE_C = (Join-Path $PSScriptRoot '../Firmware/Firmware.c')
     
-    if (Test-Path "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1") { . "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32v003fun_base.ps1"; }
-    else { . "$PSScriptRoot/../Firmware/ch32v003fun/build_scripts/ch32v003fun_base.ps1"; }
+    if (Test-Path "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32fun_base.ps1") { . "$PSScriptRoot/../Firmware/supplemental/build_scripts/ch32fun_base.ps1"; }
+    else { . "$PSScriptRoot/../Firmware/ch32v003fun/build_scripts/ch32fun_base.ps1"; }
     if ($NoFlash) { ExecuteActions 'build'; }
     else { ExecuteActions 'cv_flash'; }
 }
